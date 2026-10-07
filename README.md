@@ -51,11 +51,17 @@ ARGS=-p8107
 ## Como Executar
 
 ### Pipeline Completo Automático
-Para sincronizar o código, compilar, executar e baixar os relatórios de análise para a máquina local com um único comando:
 
-```bash
-make all-hello
-```
+- **Programa Hello (Sequencial):**
+  ```bash
+  make all-hello
+  ```
+
+- **Programa Hello MPI (Cluster):**
+  ```bash
+  make all-mpi
+  ```
+  *(Opções customizáveis: `make all-mpi NP=8`)*
 
 ---
 
@@ -63,19 +69,25 @@ make all-hello
 
 | Comando | Descrição |
 | :--- | :--- |
-| `make all-hello` | Executa todo o fluxo: `sync-cluster` ➔ `build-hello` ➔ `run-hello` ➔ `sync-notes` |
-| `make sync-cluster` | Sincroniza a pasta local `src/cluster` para `~/cluster` na VPS |
-| `make build-hello` | Compila o programa `hello` na VPS (`gcc -O2`) |
-| `make run-hello` | Executa o programa `hello` na VPS e salva `.out` e `.time` em `~/notes/hello/` |
-| `make sync-notes` | Baixa os resultados da VPS (`~/notes/`) para a pasta local (`src/notes/`) |
-| `make clean-notes-hello` | Limpa os relatórios de análise do `hello` tanto na VPS quanto localmente |
+| `make all-hello` | Executa todo o fluxo do hello: `sync-cluster` ➔ `build-hello` ➔ `run-hello` ➔ `sync-notes` |
+| `make all-mpi` | Executa todo o fluxo MPI: `sync-cluster` ➔ `build-mpi` ➔ `run-mpi` |
+| `make sync-cluster` | Sincroniza a pasta local `src/cluster` e `host_nodes` para `~/cluster` no host remoto |
+| `make build-hello` | Compila o programa `hello` no host remoto (`gcc -O2`) |
+| `make run-hello` | Executa o programa `hello` no host remoto |
+| `make build-mpi` | Compila o programa MPI no host remoto (`mpicc -O2 hello_mpi.c -o hello_mpi`) |
+| `make run-mpi` | Executa o programa MPI via `mpirun` com `nohup` em background (`&`) |
+| `make sync-notes` | Baixa os resultados do host remoto (`~/notes/`) para a pasta local (`src/notes/`) |
+| `make clean-notes-hello` | Limpa os relatórios de análise do `hello` tanto no host quanto localmente |
+| `make clean-notes-mpi` | Limpa os relatórios de análise do `mpi` tanto no host quanto localmente |
 
 ---
 
 ## Arquivos e Estrutura
 
 - `Makefile` — Regras de compilação, envio e análise do projeto.
-- `config.mk` — Configurações locais de IP, usuário, porta e senha (ignorado pelo git).
+- `config.mk` — Configurações locais de IP/HOST, usuário, porta e senha (ignorado pelo git).
 - `config.example.mk` — Modelo de configuração para novos desenvolvedores.
+- `host_nodes` — Lista de nós de cômputo e slots para o `mpirun`.
 - `src/cluster/` — Código fonte a ser sincronizado e executado no cluster.
 - `src/notes/` — Pasta local onde ficam armazenadas as análises e medições de tempo.
+
