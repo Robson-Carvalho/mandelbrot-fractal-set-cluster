@@ -2,4 +2,5 @@
 IP=
 HOST=
 USER=
+PASSWORD=
 ARGS=
