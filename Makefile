@@ -36,6 +36,8 @@ all-hello: sync-cluster build-hello run-hello
 
 all-mpi: sync-cluster build-mpi run-mpi
 
+### Padrão
+
 hello-cluster:
 	@echo "Conectando em $(USER)@$(HOST)"
 	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "cd $(REMOTE_HELLO_DIR) && ./main; exit"
@@ -47,14 +49,6 @@ build-hello:
 run-hello:
 	@echo "Executando hello e salvando em $(REMOTE_HELLO_NOTES_DIR)"
 	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "mkdir -p $(REMOTE_HELLO_NOTES_DIR) && cd $(REMOTE_HELLO_DIR) && ( (time ./main > $(REMOTE_HELLO_NOTES_DIR)/hello-$(RUN_ID).out) 2> $(REMOTE_HELLO_NOTES_DIR)/hello-$(RUN_ID).time ) || ( rm -f $(REMOTE_HELLO_NOTES_DIR)/hello-$(RUN_ID).out $(REMOTE_HELLO_NOTES_DIR)/hello-$(RUN_ID).time && false )"
-
-build-mpi:
-	@echo "Compilando hello_mpi com mpicc"
-	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "mkdir -p $(REMOTE_MPI_DIR) && cd $(REMOTE_MPI_DIR) && mpicc -O2 hello_mpi.c -o hello_mpi"
-
-run-mpi:
-	@echo "Executando hello_mpi no cluster com nohup em background"
-	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "mkdir -p $(REMOTE_MPI_NOTES_DIR) && cd $(REMOTE_MPI_DIR) && nohup mpirun -np $(NP) -machinefile $(REMOTE_HOST_FILE) ./hello_mpi $(PARS) > $(REMOTE_MPI_NOTES_DIR)/mpi-$(RUN_ID).log 2>&1 &"
 
 sync-cluster:
 	@echo "Removendo e substituindo $(REMOTE_DIR) em $(USER)@$(HOST)"
@@ -71,6 +65,17 @@ clean-notes-hello:
 	@echo "Limpando análises do hello na VPS e localmente"
 	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "rm -rf $(REMOTE_HELLO_NOTES_DIR)"
 	rm -rf $(LOCAL_NOTES_DIR)/hello
+
+
+### MPI
+
+build-mpi:
+	@echo "Compilando hello_mpi com mpicc"
+	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "mkdir -p $(REMOTE_MPI_DIR) && cd $(REMOTE_MPI_DIR) && mpicc -O2 hello_mpi.c -o hello_mpi"
+
+run-mpi:
+	@echo "Executando hello_mpi no cluster com nohup em background"
+	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "mkdir -p $(REMOTE_MPI_NOTES_DIR) && cd $(REMOTE_MPI_DIR) && nohup mpirun -np $(NP) -machinefile $(REMOTE_HOST_FILE) ./hello_mpi $(PARS) > $(REMOTE_MPI_NOTES_DIR)/mpi-$(RUN_ID).log 2>&1 &"
 
 clean-notes-mpi:
 	@echo "Limpando análises do mpi na VPS e localmente"

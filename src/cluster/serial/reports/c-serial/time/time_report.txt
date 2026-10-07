@@ -1,0 +1,18 @@
+Iniciando cálculos e geração da imagem...
+Resolucao: 30720x20480 | Iteracoes: 5000
+Salvando em: pictures/fractal_30720_20480_iter5000_.ppm
+
+=== RESULTADOS ===
+Tempo de processamento (CPU + I/O) : 3037.823724 segundos
+
+=== RECURSOS DO SISTEMA ===
+Memoria maxima usada (Max RSS)   : 1920 KB
+Page faults (Soft/Recuperaveis)  : 99
+Page faults (Hard/Disco)         : 1
+Trocas de contexto voluntarias   : 3906
+Trocas de contexto involuntarias : 4109
+===========================
+
+real	50m41.785s
+user	50m33.706s
+sys	0m0.966s
