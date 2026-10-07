@@ -23,7 +23,7 @@ endif
 
 .PHONY: hello-cluster sync-cluster build-hello run-hello sync-notes clean-notes-hello all-hello
 
-all-hello: sync-cluster build-hello run-hello sync-notes
+all-hello: sync-cluster build-hello run-hello
 
 hello-cluster:
 	@echo "Conectando em $(USER)@$(HOST)"
