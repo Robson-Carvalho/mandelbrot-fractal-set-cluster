@@ -15,6 +15,9 @@ REMOTE_NOTES_DIR := ~/notes
 REMOTE_HELLO_NOTES_DIR := $(REMOTE_NOTES_DIR)/hello
 REMOTE_MPI_NOTES_DIR := $(REMOTE_NOTES_DIR)/mpi
 
+REMOTE_MANDELBROT_DIR := $(REMOTE_MPI_DIR)/mandelbrot
+REMOTE_MANDELBROT_NOTES_DIR := $(REMOTE_NOTES_DIR)/mandelbrot
+
 HOST_FILE ?= host_nodes
 REMOTE_HOST_FILE := $(REMOTE_DIR)/host_nodes
 NP ?= 4
@@ -30,11 +33,13 @@ else
     SCP_CMD := scp
 endif
 
-.PHONY: hello-cluster sync-cluster build-hello run-hello sync-notes clean-notes-hello all-hello build-mpi run-mpi all-mpi clean-notes-mpi
+.PHONY: hello-cluster sync-cluster build-hello run-hello sync-notes clean-notes-hello all-hello build-mpi run-mpi all-mpi clean-notes-mpi build-mandelbrot run-mandelbrot clean-notes-mandelbrot all-mandelbrot check-mandelbrot
 
 all-hello: sync-cluster build-hello run-hello
 
 all-mpi: sync-cluster build-mpi run-mpi
+
+all-mandelbrot: sync-cluster build-mandelbrot run-mandelbrot
 
 ### Padrão
 
@@ -81,3 +86,22 @@ clean-notes-mpi:
 	@echo "Limpando análises do mpi na VPS e localmente"
 	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "rm -rf $(REMOTE_MPI_NOTES_DIR)"
 	rm -rf $(LOCAL_NOTES_DIR)/mpi
+
+### Mandelbrot
+
+build-mandelbrot:
+	@echo "Compilando mandelbrot com mpicc"
+	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "cd $(REMOTE_MANDELBROT_DIR) && mpicc -O2 main.c -o mandelbrot"
+
+run-mandelbrot:
+	@echo "Executando mandelbrot no cluster com nohup em background"
+	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "mkdir -p $(REMOTE_MANDELBROT_NOTES_DIR) && cd $(REMOTE_MANDELBROT_DIR) && echo 'nohup mpirun -np $(NP) -machinefile $(REMOTE_HOST_FILE) ./mandelbrot $(PARS) > $(REMOTE_MANDELBROT_NOTES_DIR)/mandelbrot-$(RUN_ID).log 2>&1 < /dev/null &' > run_bg.sh && bash run_bg.sh"
+
+check-mandelbrot:
+	@echo "Verificando status do processo no cluster..."
+	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "pgrep -f '[m]pirun.*mandelbrot' > /dev/null && echo '🟢 Algoritmo está RODANDO no cluster!' || echo '🔴 Algoritmo NÃO está sendo executado.'"
+
+clean-notes-mandelbrot:
+	@echo "Limpando análises do mandelbrot na VPS e localmente"
+	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "rm -rf $(REMOTE_MANDELBROT_NOTES_DIR)"
+	rm -rf $(LOCAL_NOTES_DIR)/mandelbrot

@@ -57,11 +57,37 @@ ARGS=-p8107
   make all-hello
   ```
 
-- **Programa Hello MPI (Cluster):**
+- **Programa Mandelbrot (MPI Avançado):**
   ```bash
-  make all-mpi
+  make all-mandelbrot check-mandelbrot NP=4 PARS="2000 2000"
   ```
-  *(Opções customizáveis: `make all-mpi NP=8`)*
+  *(O processo rodará em background, de forma desacoplada da sua máquina).*
+
+---
+
+## Fluxo de Execução do Mandelbrot
+
+Como o cálculo do Mandelbrot pode ser demorado (especialmente para matrizes muito grandes), o fluxo de execução foi desenhado para não "travar" o seu terminal (execução assíncrona):
+
+1. **Submissão Desacoplada (`run-mandelbrot`)**:
+   O `Makefile` acessa a VPS via SSH e cria um script temporário chamado `run_bg.sh`. Esse script contém o comando `mpirun` com a flag `nohup` e `&`. O `Makefile` executa esse script e encerra imediatamente. Com isso, o cálculo fica executando lá no servidor em segundo plano, e a sua conexão SSH é liberada instantaneamente.
+   
+2. **Parâmetros Dinâmicos (`NP` e `PARS`)**:
+   - `NP` (Number of Processes): É a quantidade total de Ranks que você deseja criar. O MPI se encarregará de distribuir essa quantidade de Ranks entre as máquinas listadas no `host_nodes`. Exemplo: `NP=8`.
+   - `PARS`: Permite passar argumentos extras via linha de comando direto para o programa em C (chegando como `argv`). Isso evita ter que editar e recompilar o código a cada teste. Exemplo: `PARS="2000 2000"` (enviando as dimensões de `rows` e `columns`).
+
+3. **Verificação de Status (`check-mandelbrot`)**:
+   Enquanto o servidor está realizando as contas lá no background, você pode acompanhar se ele ainda está rodando com o comando:
+   ```bash
+   make check-mandelbrot
+   ```
+   Ele usa um `pgrep -f` inteligente para detectar o processo e retorna uma 🟢 **Bolinha Verde** se o algoritmo estiver vivo, ou 🔴 **Bolinha Vermelha** caso tenha finalizado.
+
+4. **Sincronização dos Resultados (`sync-notes`)**:
+   Quando a checagem der vermelho, significa que o algoritmo terminou o trabalho. Aí sim você deve baixar o arquivo de Log (`.log`) pesadão para sua máquina local:
+   ```bash
+   make sync-notes
+   ```
 
 ---
 
@@ -71,6 +97,8 @@ ARGS=-p8107
 | :--- | :--- |
 | `make all-hello` | Executa todo o fluxo do hello: `sync-cluster` ➔ `build-hello` ➔ `run-hello` ➔ `sync-notes` |
 | `make all-mpi` | Executa todo o fluxo MPI: `sync-cluster` ➔ `build-mpi` ➔ `run-mpi` |
+| `make all-mandelbrot` | Executa todo o fluxo Mandelbrot: `sync-cluster` ➔ `build-mandelbrot` ➔ `run-mandelbrot` |
+| `make check-mandelbrot` | Verifica se o algoritmo Mandelbrot ainda está em execução na VPS (🟢/🔴) |
 | `make sync-cluster` | Sincroniza a pasta local `src/cluster` e `host_nodes` para `~/cluster` no host remoto |
 | `make build-hello` | Compila o programa `hello` no host remoto (`gcc -O2`) |
 | `make run-hello` | Executa o programa `hello` no host remoto |
@@ -79,6 +107,7 @@ ARGS=-p8107
 | `make sync-notes` | Baixa os resultados do host remoto (`~/notes/`) para a pasta local (`src/notes/`) |
 | `make clean-notes-hello` | Limpa os relatórios de análise do `hello` tanto no host quanto localmente |
 | `make clean-notes-mpi` | Limpa os relatórios de análise do `mpi` tanto no host quanto localmente |
+| `make clean-notes-mandelbrot` | Limpa os relatórios e logs do `mandelbrot` na VPS e localmente |
 
 ---
 
