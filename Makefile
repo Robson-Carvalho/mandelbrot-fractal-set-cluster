@@ -91,7 +91,7 @@ clean-notes-mpi:
 
 build-mandelbrot:
 	@echo "Compilando mandelbrot com mpicc"
-	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "cd $(REMOTE_MANDELBROT_DIR) && mpicc -O2 main.c -o mandelbrot"
+	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "cd $(REMOTE_MANDELBROT_DIR) && mpicc -O2 main.c lib/complex.c lib/mandelbrot.c -o mandelbrot -lm"
 
 run-mandelbrot:
 	@echo "Executando mandelbrot no cluster com nohup em background"
