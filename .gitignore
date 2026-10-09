@@ -2,4 +2,4 @@
 !makefile.mk
 !config.example.mk
 host_nodes
-src/pictures/mandelbrot/*.ppm
+src/pictures/*
