@@ -14,6 +14,10 @@ LOCAL_NOTES_DIR := src/notes
 REMOTE_NOTES_DIR := ~/notes
 REMOTE_HELLO_NOTES_DIR := $(REMOTE_NOTES_DIR)/hello
 REMOTE_MPI_NOTES_DIR := $(REMOTE_NOTES_DIR)/mpi
+REMOTE_SERIAL_NOTES_DIR := $(REMOTE_NOTES_DIR)/serial
+
+LOCAL_SERIAL_DIR := $(LOCAL_DIR)/serial
+REMOTE_SERIAL_DIR := $(REMOTE_DIR)/serial
 
 LOCAL_PICTURES_DIR := src/pictures
 REMOTE_PICTURES_DIR := ~/pictures
@@ -21,6 +25,8 @@ REMOTE_PICTURES_DIR := ~/pictures
 REMOTE_MANDELBROT_DIR := $(REMOTE_MPI_DIR)/mandelbrot
 REMOTE_MANDELBROT_NOTES_DIR := $(REMOTE_NOTES_DIR)/mandelbrot
 REMOTE_MANDELBROT_PICTURES_DIR := $(REMOTE_PICTURES_DIR)/mandelbrot
+
+REMOTE_SERIAL_PICTURES_DIR := $(REMOTE_PICTURES_DIR)/serial
 
 REMOTE_SPMD_DIR := $(REMOTE_MPI_DIR)/mandelbrot_spmd
 REMOTE_SPMD_NOTES_DIR := $(REMOTE_NOTES_DIR)/mandelbrot_spmd
@@ -40,7 +46,7 @@ else
     SCP_CMD := scp
 endif
 
-.PHONY: help hello-cluster sync-cluster build-hello run-hello sync-notes sync-pictures clean-pictures clean-notes-hello all-hello build-mpi run-mpi all-mpi clean-notes-mpi build-mandelbrot run-mandelbrot clean-notes-mandelbrot all-mandelbrot check-mandelbrot stop-mandelbrot
+.PHONY: help hello-cluster sync-cluster build-hello run-hello sync-notes sync-pictures clean-pictures clean-notes-hello all-hello build-mpi run-mpi all-mpi clean-notes-mpi build-mandelbrot run-mandelbrot clean-notes-mandelbrot all-mandelbrot check-mandelbrot stop-mandelbrot build-serial run-serial check-serial clean-notes-serial all-serial
 
 help: ## Exibe esta mensagem de ajuda
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z0-9_-]+:.*?## / {printf "\033[36m%-25s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -52,6 +58,8 @@ all-mpi: sync-cluster build-mpi run-mpi ## Sincroniza, compila e executa o hello
 all-mandelbrot: sync-cluster build-mandelbrot run-mandelbrot ## Sincroniza, compila e executa o mandelbrot
 
 all-spmd: sync-cluster build-spmd run-spmd ## Sincroniza, compila e executa o mandelbrot_spmd (ingênuo)
+
+all-serial: sync-cluster build-serial run-serial ## Sincroniza, compila e executa o serial
 
 ### Padrão
 
@@ -143,7 +151,7 @@ build-spmd: ## Compila o mandelbrot_spmd com mpicc
 
 run-spmd: ## Executa o mandelbrot_spmd em background no cluster
 	@echo "Executando mandelbrot_spmd no cluster com nohup em background"
-	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "mkdir -p $(REMOTE_SPMD_NOTES_DIR) && cd $(REMOTE_SPMD_DIR) && echo 'nohup mpirun -np $(NP) -machinefile $(REMOTE_HOST_FILE) ./mandelbrot_spmd $(PARS) > $(REMOTE_SPMD_NOTES_DIR)/spmd-$(RUN_ID).log 2>&1 < /dev/null &' > run_bg.sh && bash run_bg.sh"
+	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "mkdir -p $(REMOTE_SPMD_NOTES_DIR) && mkdir -p $(REMOTE_PICTURES_DIR)/mandelbrot_spmd && cd $(REMOTE_SPMD_DIR) && echo 'nohup mpirun -np $(NP) -machinefile $(REMOTE_HOST_FILE) ./mandelbrot_spmd $(PARS) $(REMOTE_PICTURES_DIR)/mandelbrot_spmd/spmd-$(RUN_ID).ppm > $(REMOTE_SPMD_NOTES_DIR)/spmd-$(RUN_ID).log 2>&1 < /dev/null &' > run_bg.sh && bash run_bg.sh"
 
 check-spmd: ## Checa se o mandelbrot_spmd está rodando no cluster
 	@echo "Verificando status do processo no cluster..."
@@ -153,3 +161,22 @@ clean-notes-spmd: ## Apaga os resultados do mandelbrot_spmd (local e VPS)
 	@echo "Limpando análises do SPMD na VPS e localmente"
 	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "rm -rf $(REMOTE_SPMD_NOTES_DIR)"
 	rm -rf $(LOCAL_NOTES_DIR)/mandelbrot_spmd
+
+### Serial
+
+build-serial: ## Compila o serial com gcc
+	@echo "Compilando serial com gcc"
+	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "cd $(REMOTE_SERIAL_DIR) && gcc -O2 image_generator.c complex.c mandelbrot.c -o serial_app -lm"
+
+run-serial: ## Executa o serial em background no cluster
+	@echo "Executando serial no cluster com nohup em background"
+	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "mkdir -p $(REMOTE_SERIAL_NOTES_DIR) && mkdir -p $(REMOTE_SERIAL_PICTURES_DIR) && cd $(REMOTE_SERIAL_DIR) && echo 'nohup ./serial_app $(PARS) $(REMOTE_SERIAL_PICTURES_DIR)/serial-$(RUN_ID).ppm > $(REMOTE_SERIAL_NOTES_DIR)/serial-$(RUN_ID).log 2>&1 < /dev/null &' > run_bg.sh && bash run_bg.sh"
+
+check-serial: ## Checa se o serial está rodando no cluster
+	@echo "Verificando status do processo no cluster..."
+	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "pgrep -f './serial_app' > /dev/null && echo '🟢 Algoritmo serial está RODANDO no cluster!' || echo '🔴 Algoritmo serial NÃO está sendo executado.'"
+
+clean-notes-serial: ## Apaga os resultados do serial (local e VPS)
+	@echo "Limpando análises do serial na VPS e localmente"
+	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "rm -rf $(REMOTE_SERIAL_NOTES_DIR)"
+	rm -rf $(LOCAL_NOTES_DIR)/serial

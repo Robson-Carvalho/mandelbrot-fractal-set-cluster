@@ -1,0 +1,1 @@
+Uso: ./serial_app <width> <height> <minX> <maxX> <minY> <maxY> <max_iter> <output_filename>
