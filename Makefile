@@ -18,6 +18,9 @@ REMOTE_MPI_NOTES_DIR := $(REMOTE_NOTES_DIR)/mpi
 REMOTE_MANDELBROT_DIR := $(REMOTE_MPI_DIR)/mandelbrot
 REMOTE_MANDELBROT_NOTES_DIR := $(REMOTE_NOTES_DIR)/mandelbrot
 
+REMOTE_SPMD_DIR := $(REMOTE_MPI_DIR)/mandelbrot_spmd
+REMOTE_SPMD_NOTES_DIR := $(REMOTE_NOTES_DIR)/mandelbrot_spmd
+
 HOST_FILE ?= host_nodes
 REMOTE_HOST_FILE := $(REMOTE_DIR)/host_nodes
 NP ?= 4
@@ -43,6 +46,8 @@ all-hello: sync-cluster build-hello run-hello ## Sincroniza, compila e executa o
 all-mpi: sync-cluster build-mpi run-mpi ## Sincroniza, compila e executa o hello_mpi (MPI)
 
 all-mandelbrot: sync-cluster build-mandelbrot run-mandelbrot ## Sincroniza, compila e executa o mandelbrot
+
+all-spmd: sync-cluster build-spmd run-spmd ## Sincroniza, compila e executa o mandelbrot_spmd (ingênuo)
 
 ### Padrão
 
@@ -112,3 +117,22 @@ clean-notes-mandelbrot: ## Apaga os resultados do mandelbrot (local e VPS)
 	@echo "Limpando análises do mandelbrot na VPS e localmente"
 	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "rm -rf $(REMOTE_MANDELBROT_NOTES_DIR)"
 	rm -rf $(LOCAL_NOTES_DIR)/mandelbrot
+
+### Mandelbrot SPMD (Ingênuo)
+
+build-spmd: ## Compila o mandelbrot_spmd com mpicc
+	@echo "Compilando mandelbrot_spmd com mpicc"
+	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "cd $(REMOTE_SPMD_DIR) && mpicc -O2 main.c lib/complex.c lib/mandelbrot.c -o mandelbrot_spmd -lm"
+
+run-spmd: ## Executa o mandelbrot_spmd em background no cluster
+	@echo "Executando mandelbrot_spmd no cluster com nohup em background"
+	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "mkdir -p $(REMOTE_SPMD_NOTES_DIR) && cd $(REMOTE_SPMD_DIR) && echo 'nohup mpirun -np $(NP) -machinefile $(REMOTE_HOST_FILE) ./mandelbrot_spmd $(PARS) > $(REMOTE_SPMD_NOTES_DIR)/spmd-$(RUN_ID).log 2>&1 < /dev/null &' > run_bg.sh && bash run_bg.sh"
+
+check-spmd: ## Checa se o mandelbrot_spmd está rodando no cluster
+	@echo "Verificando status do processo no cluster..."
+	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "pgrep -f '[m]pirun.*mandelbrot_spmd' > /dev/null && echo '🟢 Algoritmo SPMD está RODANDO no cluster!' || echo '🔴 Algoritmo SPMD NÃO está sendo executado.'"
+
+clean-notes-spmd: ## Apaga os resultados do mandelbrot_spmd (local e VPS)
+	@echo "Limpando análises do SPMD na VPS e localmente"
+	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "rm -rf $(REMOTE_SPMD_NOTES_DIR)"
+	rm -rf $(LOCAL_NOTES_DIR)/mandelbrot_spmd
