@@ -33,7 +33,7 @@ else
     SCP_CMD := scp
 endif
 
-.PHONY: help hello-cluster sync-cluster build-hello run-hello sync-notes clean-notes-hello all-hello build-mpi run-mpi all-mpi clean-notes-mpi build-mandelbrot run-mandelbrot clean-notes-mandelbrot all-mandelbrot check-mandelbrot
+.PHONY: help hello-cluster sync-cluster build-hello run-hello sync-notes clean-notes-hello all-hello build-mpi run-mpi all-mpi clean-notes-mpi build-mandelbrot run-mandelbrot clean-notes-mandelbrot all-mandelbrot check-mandelbrot stop-mandelbrot
 
 help: ## Exibe esta mensagem de ajuda
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z0-9_-]+:.*?## / {printf "\033[36m%-25s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -98,11 +98,15 @@ build-mandelbrot: ## Compila o mandelbrot com mpicc
 
 run-mandelbrot: ## Executa o mandelbrot em background no cluster
 	@echo "Executando mandelbrot no cluster com nohup em background"
-	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "mkdir -p $(REMOTE_MANDELBROT_NOTES_DIR) && cd $(REMOTE_MANDELBROT_DIR) && echo 'nohup mpirun -np $(NP) -machinefile $(REMOTE_HOST_FILE) ./mandelbrot $(PARS) > $(REMOTE_MANDELBROT_NOTES_DIR)/mandelbrot-$(RUN_ID).log 2>&1 < /dev/null &' > run_bg.sh && bash run_bg.sh"
+	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "mkdir -p $(REMOTE_MANDELBROT_NOTES_DIR) && cd $(REMOTE_MANDELBROT_DIR) && echo 'nohup mpirun -np $(NP) -machinefile $(REMOTE_HOST_FILE) ./mandelbrot $(PARS) $(REMOTE_MANDELBROT_NOTES_DIR)/mandelbrot-$(RUN_ID).ppm > $(REMOTE_MANDELBROT_NOTES_DIR)/mandelbrot-$(RUN_ID).log 2>&1 < /dev/null &' > run_bg.sh && bash run_bg.sh"
 
 check-mandelbrot: ## Checa se o mandelbrot está rodando no cluster
 	@echo "Verificando status do processo no cluster..."
 	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "pgrep -f '[m]pirun.*mandelbrot' > /dev/null && echo '🟢 Algoritmo está RODANDO no cluster!' || echo '🔴 Algoritmo NÃO está sendo executado.'"
+
+stop-mandelbrot: ## Para a execução do mandelbrot no cluster
+	@echo "Parando a execução do mandelbrot no cluster e em todos os nós..."
+	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "killall -9 mpirun mandelbrot 2>/dev/null || true; if [ -f $(REMOTE_HOST_FILE) ]; then for node in \$$(sed 's/ .*//' $(REMOTE_HOST_FILE) | sort -u); do ssh \$$node 'killall -9 mandelbrot 2>/dev/null' < /dev/null || true; done; fi"
 
 clean-notes-mandelbrot: ## Apaga os resultados do mandelbrot (local e VPS)
 	@echo "Limpando análises do mandelbrot na VPS e localmente"

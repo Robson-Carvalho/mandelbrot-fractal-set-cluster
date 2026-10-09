@@ -35,9 +35,7 @@ int main(int argc, char **argv) {
     double maxY = atof(argv[6]);
     int max_iter = atoi(argv[7]);
 
-    int tasks = 0;
-
-    long long total_iter = 0; // Para enganar o compilador
+    long long total_iter = 0; 
 
     for (int i = rank; i < rows; i += size) 
     {
@@ -60,11 +58,32 @@ int main(int argc, char **argv) {
                 total_iter += iter;
             }
         }
-
-        tasks++;
     }
 
-    printf("[Rank %d] Finalizado! Processei %d linhas e fiz %lld iterações no total.\n", rank, tasks, total_iter);
+
+    if(size > 1){
+        if(rank == 0)
+        {
+            int receive = 0;
+            printf("oi, eu sou o mestre de rank %d e vou receber valores dos trabalhos!\n", rank);
+            
+
+            for(int i = 1; i < size; i++){
+                // int MPI_Recv(void *message, int count, MPI_Datatype datatype, int source, int tag, MPI_Comm comm, MPI_Status *status)
+                MPI_Recv(&receive, 1, MPI_INT, MPI_ANY_SOURCE, 0, MPI_COMM_WORLD, NULL);
+                printf("Recebi: %d\n", receive);
+            }
+        }
+        else
+        {
+            int tag = 0;
+            int dest = 0;
+
+            printf("oi, eu sou o trabalhador de rank %d e vou enviar %d para o mestre!\n", rank, total_iter);
+            //int MPI_Send(void *message, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm)
+            MPI_Send(&total_iter, 1, MPI_INT, dest, tag, MPI_COMM_WORLD);
+        }
+    }
 
     fflush(stdout);
     MPI_Finalize();

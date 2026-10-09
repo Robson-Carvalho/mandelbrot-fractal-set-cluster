@@ -1,0 +1,19 @@
+Uso: make all-mandelbrot PARS="<rows> <cols> <minX> <maxX> <minY> <maxY> <max_iter>"
+Exemplo: make all-mandelbrot PARS="2000 2000 -2.0 1.0 -1.5 1.5 1000"
+Uso: make all-mandelbrot PARS="<rows> <cols> <minX> <maxX> <minY> <maxY> <max_iter>"
+Exemplo: make all-mandelbrot PARS="2000 2000 -2.0 1.0 -1.5 1.5 1000"
+Uso: make all-mandelbrot PARS="<rows> <cols> <minX> <maxX> <minY> <maxY> <max_iter>"
+Exemplo: make all-mandelbrot PARS="2000 2000 -2.0 1.0 -1.5 1.5 1000"
+Uso: make all-mandelbrot PARS="<rows> <cols> <minX> <maxX> <minY> <maxY> <max_iter>"
+Exemplo: make all-mandelbrot PARS="2000 2000 -2.0 1.0 -1.5 1.5 1000"
+--------------------------------------------------------------------------
+Primary job  terminated normally, but 1 process returned
+a non-zero exit code. Per user-direction, the job has been aborted.
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+mpirun detected that one or more processes exited with non-zero status, thus causing
+the job to be terminated. The first process to do so was:
+
+  Process name: [[34564,1],1]
+  Exit code:    255
+--------------------------------------------------------------------------
