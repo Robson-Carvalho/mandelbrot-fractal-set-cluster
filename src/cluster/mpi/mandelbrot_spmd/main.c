@@ -99,6 +99,20 @@ int main(int argc, char **argv) {
     if (rank == 0) {
         printf("[Rank 0] Imagem montada com sucesso! O array global_buffer tem %d bytes ordenados.\n", rows * columns);
 
+        if (argc >= 9) {
+            char *filename = argv[8];
+            FILE *file_image = fopen(filename, "wb");
+            if (file_image) {
+                fprintf(file_image, "P5\n%d %d\n255\n", columns, rows);
+                fwrite(global_buffer, sizeof(unsigned char), rows * columns, file_image);
+                fclose(file_image);
+            } else {
+                perror("[Rank 0] Erro ao abrir arquivo para escrita");
+            }
+        } else {
+            printf("[Rank 0] Aviso: Nenhum arquivo de imagem foi especificado nos argumentos.\n");
+        }
+
         free(recvcounts);
         free(displs);
         free(global_buffer);

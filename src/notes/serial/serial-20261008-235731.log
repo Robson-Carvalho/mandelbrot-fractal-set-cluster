@@ -1,0 +1,14 @@
+Iniciando cálculos e geração da imagem...
+Resolucao: 2000x2000 | Iteracoes: 100
+Salvando em: /home/grupob/pictures/serial/serial-20261008-235731.ppm
+
+=== RESULTADOS ===
+Tempo de processamento (CPU + I/O) : 0.536860 segundos
+
+=== RECURSOS DO SISTEMA ===
+Memoria maxima usada (Max RSS)   : 1860 KB
+Page faults (Soft/Recuperaveis)  : 207
+Page faults (Hard/Disco)         : 0
+Trocas de contexto voluntarias   : 0
+Trocas de contexto involuntarias : 4
+===========================
