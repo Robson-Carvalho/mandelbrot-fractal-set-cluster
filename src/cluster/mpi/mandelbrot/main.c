@@ -43,7 +43,9 @@ int main(int argc, char **argv) {
 
     int local_idx = 0;
     for (int i = rank; i < rows; i += size) {
-        unsigned char *row_ptr = &my_lines[local_idx * line_bytes];
+        int offset = local_idx * line_bytes;
+        unsigned char *row_ptr = &my_lines[offset];
+
         for (int e = 0; e < columns; e++) {
             Complex_number c;
             c.real = minX + ((double)e / columns) * (maxX - minX);
@@ -51,58 +53,83 @@ int main(int argc, char **argv) {
 
             Mandelbrot_check_return result = check_mandelbrot(c, max_iter);
 
-            unsigned char tom;
+            unsigned char color_intensity;
             if (result.check == 1) {
-                tom = 0;
+                color_intensity = 0;
             } else {
-                tom = (unsigned char)(sin(0.1 * result.iterations_to_scape) * 127.5 + 127.5);
+                color_intensity = (unsigned char)(sin(0.1 * result.iterations_to_scape) * 127.5 + 127.5);
             }
-            row_ptr[e * 3 + 0] = tom;
-            row_ptr[e * 3 + 1] = tom;
-            row_ptr[e * 3 + 2] = tom;
+            row_ptr[e * 3 + 0] = color_intensity;
+            row_ptr[e * 3 + 1] = color_intensity;
+            row_ptr[e * 3 + 2] = color_intensity;
         }
         local_idx++;
     }
 
     unsigned char *full_image = NULL;
     unsigned char *gathered_buffer = NULL;
-    int *recvcounts = NULL;
-    int *displs = NULL;
+    int *chunk_sizes_in_bytes = NULL;
+    int *byte_offsets_in_buffer = NULL;
 
     if (rank == 0) {
-        full_image = (unsigned char *)malloc((size_t)rows * line_bytes);
-        gathered_buffer = (unsigned char *)malloc((size_t)rows * line_bytes);
-        recvcounts = (int *)malloc(size * sizeof(int));
-        displs = (int *)malloc(size * sizeof(int));
+        size_t total_image_bytes = (size_t)rows * line_bytes;
+        full_image = (unsigned char *)malloc(total_image_bytes);
+        gathered_buffer = (unsigned char *)malloc(total_image_bytes);
+        
+        // Arrays para o MPI_Gatherv saber o tamanho do bloco de cada processo
+        chunk_sizes_in_bytes = (int *)malloc(size * sizeof(int));
+        byte_offsets_in_buffer = (int *)malloc(size * sizeof(int));
 
-        int offset = 0;
-        for (int p = 0; p < size; p++) {
-            int p_rows = 0;
-            for (int i = p; i < rows; i += size) p_rows++;
-            recvcounts[p] = p_rows * (int)line_bytes;
-            displs[p] = offset;
-            offset += recvcounts[p];
+        int accumulated_bytes = 0;
+        for (int process_id = 0; process_id < size; process_id++) {
+            // Conta quantas linhas o 'process_id' processou
+            int lines_this_process = 0;
+            for (int line = process_id; line < rows; line += size) {
+                lines_this_process++;
+            }
+            
+            // Define o tamanho e a posicao exata no gathered_buffer
+            int bytes_this_process = lines_this_process * (int)line_bytes;
+            chunk_sizes_in_bytes[process_id] = bytes_this_process;
+            byte_offsets_in_buffer[process_id] = accumulated_bytes;
+            
+            accumulated_bytes += bytes_this_process;
         }
     }
 
     MPI_Gatherv(my_lines, my_rows * (int)line_bytes, MPI_UNSIGNED_CHAR,
-                gathered_buffer, recvcounts, displs, MPI_UNSIGNED_CHAR,
+                gathered_buffer, chunk_sizes_in_bytes, byte_offsets_in_buffer, MPI_UNSIGNED_CHAR,
                 0, MPI_COMM_WORLD);
 
     if (rank == 0) {
-        for (int p = 0; p < size; p++) {
-            unsigned char *src = &gathered_buffer[displs[p]];
-            int row_counter = 0;
-            for (int r = p; r < rows; r += size) {
-                unsigned char *dst = &full_image[(size_t)r * line_bytes];
-                for (size_t b = 0; b < line_bytes; b++) {
-                    dst[b] = src[row_counter * line_bytes + b];
+        // Desembaralhando o gathered_buffer de volta para a imagem final
+        for (int process_id = 0; process_id < size; process_id++) {
+            
+            // Ponteiro para o inicio do bloco de dados deste processo
+            unsigned char *process_block = &gathered_buffer[byte_offsets_in_buffer[process_id]];
+            
+            int current_line_in_block = 0;
+            
+            // Coloca as linhas do processo de volta na posicao intercalada original
+            for (int real_line = process_id; real_line < rows; real_line += size) {
+                
+                // Ponteiro para o destino na imagem completa
+                unsigned char *destination_in_image = &full_image[(size_t)real_line * line_bytes];
+                
+                // Ponteiro para a origem dentro do bloco do processo
+                unsigned char *source_in_block = &process_block[current_line_in_block * line_bytes];
+                
+                // Copia os bytes da linha
+                for (size_t byte_idx = 0; byte_idx < line_bytes; byte_idx++) {
+                    destination_in_image[byte_idx] = source_in_block[byte_idx];
                 }
-                row_counter++;
+                
+                current_line_in_block++;
             }
         }
     }
 
+    // Gerar a imagem.
     if (rank == 0) {
         char *filename = (argc > 8) ? argv[8] : "mandelbrot_mpi.ppm";
         FILE *file_image = fopen(filename, "wb");
@@ -114,8 +141,8 @@ int main(int argc, char **argv) {
         }
         free(full_image);
         free(gathered_buffer);
-        free(recvcounts);
-        free(displs);
+        free(chunk_sizes_in_bytes);
+        free(byte_offsets_in_buffer);
     }
 
     free(my_lines);
