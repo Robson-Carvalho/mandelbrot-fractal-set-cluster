@@ -33,40 +33,43 @@ else
     SCP_CMD := scp
 endif
 
-.PHONY: hello-cluster sync-cluster build-hello run-hello sync-notes clean-notes-hello all-hello build-mpi run-mpi all-mpi clean-notes-mpi build-mandelbrot run-mandelbrot clean-notes-mandelbrot all-mandelbrot check-mandelbrot
+.PHONY: help hello-cluster sync-cluster build-hello run-hello sync-notes clean-notes-hello all-hello build-mpi run-mpi all-mpi clean-notes-mpi build-mandelbrot run-mandelbrot clean-notes-mandelbrot all-mandelbrot check-mandelbrot
 
-all-hello: sync-cluster build-hello run-hello
+help: ## Exibe esta mensagem de ajuda
+	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z0-9_-]+:.*?## / {printf "\033[36m%-25s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-all-mpi: sync-cluster build-mpi run-mpi
+all-hello: sync-cluster build-hello run-hello ## Sincroniza, compila e executa o hello (Padrão)
 
-all-mandelbrot: sync-cluster build-mandelbrot run-mandelbrot
+all-mpi: sync-cluster build-mpi run-mpi ## Sincroniza, compila e executa o hello_mpi (MPI)
+
+all-mandelbrot: sync-cluster build-mandelbrot run-mandelbrot ## Sincroniza, compila e executa o mandelbrot
 
 ### Padrão
 
-hello-cluster:
+hello-cluster: ## Testa a conexão executando hello no cluster
 	@echo "Conectando em $(USER)@$(HOST)"
 	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "cd $(REMOTE_HELLO_DIR) && ./main; exit"
 
-build-hello:
+build-hello: ## Compila o programa hello
 	@echo "Compilando hello com -O2"
 	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "mkdir -p $(REMOTE_HELLO_DIR) && cd $(REMOTE_HELLO_DIR) && gcc -O2 main.c -o main"
 
-run-hello:
+run-hello: ## Executa o programa hello e salva as métricas
 	@echo "Executando hello e salvando em $(REMOTE_HELLO_NOTES_DIR)"
 	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "mkdir -p $(REMOTE_HELLO_NOTES_DIR) && cd $(REMOTE_HELLO_DIR) && ( (time ./main > $(REMOTE_HELLO_NOTES_DIR)/hello-$(RUN_ID).out) 2> $(REMOTE_HELLO_NOTES_DIR)/hello-$(RUN_ID).time ) || ( rm -f $(REMOTE_HELLO_NOTES_DIR)/hello-$(RUN_ID).out $(REMOTE_HELLO_NOTES_DIR)/hello-$(RUN_ID).time && false )"
 
-sync-cluster:
+sync-cluster: ## Envia todos os arquivos locais para o cluster remoto
 	@echo "Removendo e substituindo $(REMOTE_DIR) em $(USER)@$(HOST)"
 	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "rm -rf $(REMOTE_DIR)"
 	$(SCP_CMD) -r -P $(shell echo $(ARGS) | tr -d -c 0-9) $(LOCAL_DIR) $(USER)@$(HOST):$(REMOTE_DIR)
 	$(SCP_CMD) -P $(shell echo $(ARGS) | tr -d -c 0-9) $(HOST_FILE) $(USER)@$(HOST):$(REMOTE_HOST_FILE)
 
-sync-notes:
+sync-notes: ## Baixa os logs e relatórios remotos para o diretório local
 	@echo "Baixando $(REMOTE_NOTES_DIR) de $(USER)@$(HOST) para $(LOCAL_NOTES_DIR)"
 	mkdir -p $(LOCAL_NOTES_DIR)
 	$(SCP_CMD) -r -P $(shell echo $(ARGS) | tr -d -c 0-9) $(USER)@$(HOST):$(REMOTE_NOTES_DIR)/. $(LOCAL_NOTES_DIR)/
 
-clean-notes-hello:
+clean-notes-hello: ## Apaga os resultados do hello (local e VPS)
 	@echo "Limpando análises do hello na VPS e localmente"
 	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "rm -rf $(REMOTE_HELLO_NOTES_DIR)"
 	rm -rf $(LOCAL_NOTES_DIR)/hello
@@ -74,34 +77,34 @@ clean-notes-hello:
 
 ### MPI
 
-build-mpi:
+build-mpi: ## Compila o hello_mpi com mpicc
 	@echo "Compilando hello_mpi com mpicc"
 	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "mkdir -p $(REMOTE_MPI_DIR) && cd $(REMOTE_MPI_DIR) && mpicc -O2 hello_mpi.c -o hello_mpi"
 
-run-mpi:
+run-mpi: ## Executa o hello_mpi em background no cluster
 	@echo "Executando hello_mpi no cluster com nohup em background"
 	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "mkdir -p $(REMOTE_MPI_NOTES_DIR) && cd $(REMOTE_MPI_DIR) && nohup mpirun -np $(NP) -machinefile $(REMOTE_HOST_FILE) ./hello_mpi $(PARS) > $(REMOTE_MPI_NOTES_DIR)/mpi-$(RUN_ID).log 2>&1 &"
 
-clean-notes-mpi:
+clean-notes-mpi: ## Apaga os resultados do hello_mpi (local e VPS)
 	@echo "Limpando análises do mpi na VPS e localmente"
 	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "rm -rf $(REMOTE_MPI_NOTES_DIR)"
 	rm -rf $(LOCAL_NOTES_DIR)/mpi
 
 ### Mandelbrot
 
-build-mandelbrot:
+build-mandelbrot: ## Compila o mandelbrot com mpicc
 	@echo "Compilando mandelbrot com mpicc"
 	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "cd $(REMOTE_MANDELBROT_DIR) && mpicc -O2 main.c lib/complex.c lib/mandelbrot.c -o mandelbrot -lm"
 
-run-mandelbrot:
+run-mandelbrot: ## Executa o mandelbrot em background no cluster
 	@echo "Executando mandelbrot no cluster com nohup em background"
 	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "mkdir -p $(REMOTE_MANDELBROT_NOTES_DIR) && cd $(REMOTE_MANDELBROT_DIR) && echo 'nohup mpirun -np $(NP) -machinefile $(REMOTE_HOST_FILE) ./mandelbrot $(PARS) > $(REMOTE_MANDELBROT_NOTES_DIR)/mandelbrot-$(RUN_ID).log 2>&1 < /dev/null &' > run_bg.sh && bash run_bg.sh"
 
-check-mandelbrot:
+check-mandelbrot: ## Checa se o mandelbrot está rodando no cluster
 	@echo "Verificando status do processo no cluster..."
 	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "pgrep -f '[m]pirun.*mandelbrot' > /dev/null && echo '🟢 Algoritmo está RODANDO no cluster!' || echo '🔴 Algoritmo NÃO está sendo executado.'"
 
-clean-notes-mandelbrot:
+clean-notes-mandelbrot: ## Apaga os resultados do mandelbrot (local e VPS)
 	@echo "Limpando análises do mandelbrot na VPS e localmente"
 	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "rm -rf $(REMOTE_MANDELBROT_NOTES_DIR)"
 	rm -rf $(LOCAL_NOTES_DIR)/mandelbrot
