@@ -15,8 +15,12 @@ REMOTE_NOTES_DIR := ~/notes
 REMOTE_HELLO_NOTES_DIR := $(REMOTE_NOTES_DIR)/hello
 REMOTE_MPI_NOTES_DIR := $(REMOTE_NOTES_DIR)/mpi
 
+LOCAL_PICTURES_DIR := src/pictures
+REMOTE_PICTURES_DIR := ~/pictures
+
 REMOTE_MANDELBROT_DIR := $(REMOTE_MPI_DIR)/mandelbrot
 REMOTE_MANDELBROT_NOTES_DIR := $(REMOTE_NOTES_DIR)/mandelbrot
+REMOTE_MANDELBROT_PICTURES_DIR := $(REMOTE_PICTURES_DIR)/mandelbrot
 
 REMOTE_SPMD_DIR := $(REMOTE_MPI_DIR)/mandelbrot_spmd
 REMOTE_SPMD_NOTES_DIR := $(REMOTE_NOTES_DIR)/mandelbrot_spmd
@@ -36,7 +40,7 @@ else
     SCP_CMD := scp
 endif
 
-.PHONY: help hello-cluster sync-cluster build-hello run-hello sync-notes clean-notes-hello all-hello build-mpi run-mpi all-mpi clean-notes-mpi build-mandelbrot run-mandelbrot clean-notes-mandelbrot all-mandelbrot check-mandelbrot stop-mandelbrot
+.PHONY: help hello-cluster sync-cluster build-hello run-hello sync-notes sync-pictures clean-pictures clean-notes-hello all-hello build-mpi run-mpi all-mpi clean-notes-mpi build-mandelbrot run-mandelbrot clean-notes-mandelbrot all-mandelbrot check-mandelbrot stop-mandelbrot
 
 help: ## Exibe esta mensagem de ajuda
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z0-9_-]+:.*?## / {printf "\033[36m%-25s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -74,6 +78,19 @@ sync-notes: ## Baixa os logs e relatórios remotos para o diretório local
 	mkdir -p $(LOCAL_NOTES_DIR)
 	$(SCP_CMD) -r -P $(shell echo $(ARGS) | tr -d -c 0-9) $(USER)@$(HOST):$(REMOTE_NOTES_DIR)/. $(LOCAL_NOTES_DIR)/
 
+sync-pictures: ## Baixa as imagens remotas compactadas para o diretório local
+	@echo "Compactando e baixando $(REMOTE_PICTURES_DIR) de $(USER)@$(HOST) para $(LOCAL_PICTURES_DIR)"
+	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "cd ~ && if [ -d pictures ]; then python3 -c \"import tarfile; t = tarfile.open('pictures_sync.tar.gz', 'w:gz'); t.add('pictures'); t.close()\"; fi"
+	mkdir -p src
+	$(SCP_CMD) -P $(shell echo $(ARGS) | tr -d -c 0-9) $(USER)@$(HOST):~/pictures_sync.tar.gz ./ || true
+	if [ -f pictures_sync.tar.gz ]; then tar -xzf pictures_sync.tar.gz -C src/; rm -f pictures_sync.tar.gz; fi
+	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "rm -f ~/pictures_sync.tar.gz"
+
+clean-pictures: ## Apaga as imagens na VPS e localmente
+	@echo "Limpando diretório de imagens na VPS e localmente"
+	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "rm -rf $(REMOTE_PICTURES_DIR)"
+	rm -rf $(LOCAL_PICTURES_DIR)
+
 clean-notes-hello: ## Apaga os resultados do hello (local e VPS)
 	@echo "Limpando análises do hello na VPS e localmente"
 	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "rm -rf $(REMOTE_HELLO_NOTES_DIR)"
@@ -103,7 +120,7 @@ build-mandelbrot: ## Compila o mandelbrot com mpicc
 
 run-mandelbrot: ## Executa o mandelbrot em background no cluster
 	@echo "Executando mandelbrot no cluster com nohup em background"
-	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "mkdir -p $(REMOTE_MANDELBROT_NOTES_DIR) && cd $(REMOTE_MANDELBROT_DIR) && echo 'nohup mpirun -np $(NP) -machinefile $(REMOTE_HOST_FILE) ./mandelbrot $(PARS) $(REMOTE_MANDELBROT_NOTES_DIR)/mandelbrot-$(RUN_ID).ppm > $(REMOTE_MANDELBROT_NOTES_DIR)/mandelbrot-$(RUN_ID).log 2>&1 < /dev/null &' > run_bg.sh && bash run_bg.sh"
+	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "mkdir -p $(REMOTE_MANDELBROT_NOTES_DIR) && mkdir -p $(REMOTE_MANDELBROT_PICTURES_DIR) && cd $(REMOTE_MANDELBROT_DIR) && echo 'nohup mpirun -np $(NP) -machinefile $(REMOTE_HOST_FILE) ./mandelbrot $(PARS) $(REMOTE_MANDELBROT_PICTURES_DIR)/mandelbrot-$(RUN_ID).ppm > $(REMOTE_MANDELBROT_NOTES_DIR)/mandelbrot-$(RUN_ID).log 2>&1 < /dev/null &' > run_bg.sh && bash run_bg.sh"
 
 check-mandelbrot: ## Checa se o mandelbrot está rodando no cluster
 	@echo "Verificando status do processo no cluster..."
