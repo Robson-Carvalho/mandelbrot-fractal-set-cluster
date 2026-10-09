@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <string.h>
 #include "lib/complex.h"
 #include "lib/mandelbrot.h"
 
@@ -38,7 +39,10 @@ int main(int argc, char **argv) {
         my_rows++;
     }
 
+    // tamanho da linha
     size_t line_bytes = (size_t)columns * 3;
+
+    // tamanho parcial da imagem - apenas o tamanho calculado das linhas por esse processo
     unsigned char *my_lines = (unsigned char *)malloc(my_rows * line_bytes * sizeof(unsigned char));
 
     int local_idx = 0;
@@ -88,44 +92,41 @@ int main(int argc, char **argv) {
                 lines_this_process++;
             }
             
-            // Define o tamanho e a posicao exata no gathered_buffer
             int bytes_this_process = lines_this_process * (int)line_bytes;
-            chunk_sizes_in_bytes[process_id] = bytes_this_process;
+            // A quantidade de bytes de cada processo armazenado no index de sua referência 
+            chunk_sizes_in_bytes[process_id] = bytes_this_process; 
+            // Em cada posição desse array, há um offset para que o MPI_Gatherv saiba onde colocar os dados de cada processo
             byte_offsets_in_buffer[process_id] = accumulated_bytes;
             
             accumulated_bytes += bytes_this_process;
         }
     }
 
-    MPI_Gatherv(my_lines, my_rows * (int)line_bytes, MPI_UNSIGNED_CHAR,
-                gathered_buffer, chunk_sizes_in_bytes, byte_offsets_in_buffer, MPI_UNSIGNED_CHAR,
-                0, MPI_COMM_WORLD);
+    
+    MPI_Gatherv(
+        my_lines, 
+        my_rows * (int)line_bytes, 
+        MPI_UNSIGNED_CHAR,gathered_buffer,
+        chunk_sizes_in_bytes, 
+        byte_offsets_in_buffer, 
+        MPI_UNSIGNED_CHAR, 
+        0,
+        MPI_COMM_WORLD 
+    );
+
 
     if (rank == 0) {
-        // Desembaralhando o gathered_buffer de volta para a imagem final
-        for (int process_id = 0; process_id < size; process_id++) {
+        for (int real_line = 0; real_line < rows; real_line++) {
+            int owner = real_line % size;
+            int line_in_block = real_line / size;
             
-            // Ponteiro para o inicio do bloco de dados deste processo
-            unsigned char *process_block = &gathered_buffer[byte_offsets_in_buffer[process_id]];
-            
-            int current_line_in_block = 0;
-            
-            // Coloca as linhas do processo de volta na posicao intercalada original
-            for (int real_line = process_id; real_line < rows; real_line += size) {
-                
-                // Ponteiro para o destino na imagem completa
-                unsigned char *destination_in_image = &full_image[(size_t)real_line * line_bytes];
-                
-                // Ponteiro para a origem dentro do bloco do processo
-                unsigned char *source_in_block = &process_block[current_line_in_block * line_bytes];
-                
-                // Copia os bytes da linha
-                for (size_t byte_idx = 0; byte_idx < line_bytes; byte_idx++) {
-                    destination_in_image[byte_idx] = source_in_block[byte_idx];
-                }
-                
-                current_line_in_block++;
-            }
+            size_t source_index  = byte_offsets_in_buffer[owner] + line_in_block * line_bytes;
+            size_t destination_index = real_line * line_bytes;
+
+            unsigned char *source      = &gathered_buffer[source_index];
+            unsigned char *destination = &full_image[destination_index];
+
+            memcpy(destination, source, line_bytes);
         }
     }
 
