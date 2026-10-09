@@ -39,7 +39,11 @@ int main(int argc, char **argv) {
     int start_row = rank * lines_per_rank;
     int end_row = (rank == size - 1) ? rows : start_row + lines_per_rank;
 
-    long long total_iter = 0; // Para enganar o compilador
+    int tasks_processed = end_row - start_row;
+    int local_buffer_size = tasks_processed * columns;
+    unsigned char *local_buffer = (unsigned char *)malloc(local_buffer_size);
+
+    int buffer_index = 0;
 
     for (int i = start_row; i < end_row; i++) 
     {
@@ -50,22 +54,57 @@ int main(int argc, char **argv) {
 
             Mandelbrot_check_return result = check_mandelbrot(c, max_iter);
 
-            unsigned char r, g, b;
+            unsigned char pixel_value;
 
             if (result.check == 1) { 
-                r = g = b = 0;
-                total_iter += max_iter;
+                pixel_value = 0;
             } else {
                 int iter = result.iterations_to_scape;
-                unsigned char tom = (unsigned char)(sin(0.1 * iter) * 127.5 + 127.5);
-                r = g = b = tom;
-                total_iter += iter;
+                pixel_value = (unsigned char)(sin(0.1 * iter) * 127.5 + 127.5);
             }
+
+            local_buffer[buffer_index++] = pixel_value;
         }
     }
 
-    int tasks_processed = end_row - start_row;
-    printf("[Rank %d] Finalizado! Processei %d linhas e fiz %lld iterações no total.\n", rank, tasks_processed, total_iter);
+    // Referencias para buffers locais de cada rank e global_buffer (Rank 0)
+    int *recvcounts = NULL;
+    int *displs = NULL;
+    unsigned char *global_buffer = NULL;
+
+    // Rank 0 Reorganizando Imagem calculada via Gather
+    if (rank == 0) {
+        recvcounts = (int*) malloc(size * sizeof(int));
+        displs = (int*) malloc(size * sizeof(int));
+        global_buffer = (unsigned char*) malloc(rows * columns);
+
+        int current_displ = 0;
+        for (int i = 0; i < size; i++) {
+            int r_start = i * lines_per_rank;
+            int r_end = (i == size - 1) ? rows : r_start + lines_per_rank;
+            
+            recvcounts[i] = (r_end - r_start) * columns; 
+            displs[i] = current_displ;
+            current_displ += recvcounts[i];
+        }
+    }
+
+    // Gather de pedaços da imagem calculados pelos processos independentes
+    MPI_Gatherv(local_buffer, local_buffer_size, MPI_UNSIGNED_CHAR,
+                global_buffer, recvcounts, displs, MPI_UNSIGNED_CHAR,
+                0, MPI_COMM_WORLD);
+
+    printf("[Rank %d] Finalizado! Processei %d linhas.\n", rank, tasks_processed);
+
+    if (rank == 0) {
+        printf("[Rank 0] Imagem montada com sucesso! O array global_buffer tem %d bytes ordenados.\n", rows * columns);
+
+        free(recvcounts);
+        free(displs);
+        free(global_buffer);
+    }
+
+    free(local_buffer);
 
     fflush(stdout);
     MPI_Finalize();
