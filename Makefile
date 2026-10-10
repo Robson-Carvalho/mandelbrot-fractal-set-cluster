@@ -174,7 +174,7 @@ run-serial: ## Executa o serial em background no cluster
 
 check-serial: ## Checa se o serial está rodando no cluster
 	@echo "Verificando status do processo no cluster..."
-	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "pgrep -f './serial_app' > /dev/null && echo '🟢 Algoritmo serial está RODANDO no cluster!' || echo '🔴 Algoritmo serial NÃO está sendo executado.'"
+	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "pgrep -f '[s]erial_app' | grep -v 'run_bg.sh' > /dev/null && echo '🟢 Algoritmo serial está RODANDO no cluster!' || echo '🔴 Algoritmo serial NÃO está sendo executado.'"
 
 clean-notes-serial: ## Apaga os resultados do serial (local e VPS)
 	@echo "Limpando análises do serial na VPS e localmente"
