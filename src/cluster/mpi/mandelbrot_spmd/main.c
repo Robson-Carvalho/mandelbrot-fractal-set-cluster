@@ -40,7 +40,7 @@ int main(int argc, char **argv) {
     int end_row = (rank == size - 1) ? rows : start_row + lines_per_rank;
 
     int tasks_processed = end_row - start_row;
-    int local_buffer_size = tasks_processed * columns;
+    int local_buffer_size = tasks_processed * columns * 3;
     unsigned char *local_buffer = (unsigned char *)malloc(local_buffer_size);
 
     int buffer_index = 0;
@@ -49,8 +49,19 @@ int main(int argc, char **argv) {
     {
         for(int e = 0; e < columns; e += 1){
             Complex_number c;
-            c.real = minX + (e * (maxX - minX)) / columns;
-            c.imag = minY + (i * (maxY - minY)) / rows;
+            
+            // Replicando exatamente a ordem e lógica de ponto flutuante do serial
+            double unidades_largura = maxX - minX;
+            double unidades_altura  = maxY - minY;
+            
+            double proporcao_x = (e / (double)columns);
+            double proporcao_y = (i / (double)rows);
+            
+            double deslocamento_x = unidades_largura * proporcao_x;
+            double deslocamento_y = unidades_altura * proporcao_y;
+            
+            c.real = minX + deslocamento_x;
+            c.imag = maxY - deslocamento_y;
 
             Mandelbrot_check_return result = check_mandelbrot(c, max_iter);
 
@@ -63,7 +74,9 @@ int main(int argc, char **argv) {
                 pixel_value = (unsigned char)(sin(0.1 * iter) * 127.5 + 127.5);
             }
 
-            local_buffer[buffer_index++] = pixel_value;
+            local_buffer[buffer_index++] = pixel_value; // R
+            local_buffer[buffer_index++] = pixel_value; // G
+            local_buffer[buffer_index++] = pixel_value; // B
         }
     }
 
@@ -76,14 +89,14 @@ int main(int argc, char **argv) {
     if (rank == 0) {
         recvcounts = (int*) malloc(size * sizeof(int));
         displs = (int*) malloc(size * sizeof(int));
-        global_buffer = (unsigned char*) malloc(rows * columns);
+        global_buffer = (unsigned char*) malloc(rows * columns * 3);
 
         int current_displ = 0;
         for (int i = 0; i < size; i++) {
             int r_start = i * lines_per_rank;
             int r_end = (i == size - 1) ? rows : r_start + lines_per_rank;
             
-            recvcounts[i] = (r_end - r_start) * columns; 
+            recvcounts[i] = (r_end - r_start) * columns * 3; 
             displs[i] = current_displ;
             current_displ += recvcounts[i];
         }
@@ -97,15 +110,16 @@ int main(int argc, char **argv) {
     printf("[Rank %d] Finalizado! Processei %d linhas.\n", rank, tasks_processed);
 
     if (rank == 0) {
-        printf("[Rank 0] Imagem montada com sucesso! O array global_buffer tem %d bytes ordenados.\n", rows * columns);
+        printf("[Rank 0] Imagem montada com sucesso! O array global_buffer tem %d bytes ordenados.\n", rows * columns * 3);
 
         if (argc >= 9) {
             char *filename = argv[8];
             FILE *file_image = fopen(filename, "wb");
             if (file_image) {
-                fprintf(file_image, "P5\n%d %d\n255\n", columns, rows);
-                fwrite(global_buffer, sizeof(unsigned char), rows * columns, file_image);
+                fprintf(file_image, "P6\n%d %d\n255\n", columns, rows);
+                fwrite(global_buffer, sizeof(unsigned char), rows * columns * 3, file_image);
                 fclose(file_image);
+                printf("[Rank 0] Imagem salva em: %s\n", filename);
             } else {
                 perror("[Rank 0] Erro ao abrir arquivo para escrita");
             }
