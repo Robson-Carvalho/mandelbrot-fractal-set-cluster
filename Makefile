@@ -170,11 +170,11 @@ build-serial: ## Compila o serial com gcc
 
 run-serial: ## Executa o serial em background no nó de cômputo
 	@echo "Executando serial no nó de cômputo com nohup em background"
-	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "mkdir -p $(REMOTE_SERIAL_NOTES_DIR) && mkdir -p $(REMOTE_SERIAL_PICTURES_DIR) && NODE=\$$(head -n 1 $(REMOTE_HOST_FILE) | awk '{print \$1}') && echo \"nohup ssh \$$NODE 'cd $(REMOTE_SERIAL_DIR) && ./serial_app $(PARS) $(REMOTE_SERIAL_PICTURES_DIR)/serial-$(RUN_ID).ppm' > $(REMOTE_SERIAL_NOTES_DIR)/serial-$(RUN_ID).log 2>&1 < /dev/null &\" > run_bg.sh && bash run_bg.sh"
+	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "mkdir -p $(REMOTE_SERIAL_NOTES_DIR) && mkdir -p $(REMOTE_SERIAL_PICTURES_DIR) && NODE=\$$(head -n 1 $(REMOTE_HOST_FILE) | sed 's/ .*//') && echo \"nohup ssh \$$NODE 'cd $(REMOTE_SERIAL_DIR) && ./serial_app $(PARS) $(REMOTE_SERIAL_PICTURES_DIR)/serial-$(RUN_ID).ppm' > $(REMOTE_SERIAL_NOTES_DIR)/serial-$(RUN_ID).log 2>&1 < /dev/null &\" > run_bg.sh && bash run_bg.sh"
 
 check-serial: ## Checa se o serial está rodando no nó de cômputo
 	@echo "Verificando status do processo no nó de cômputo..."
-	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "NODE=\$$(head -n 1 $(REMOTE_HOST_FILE) | awk '{print \$1}') && ssh \$$NODE 'pgrep -f [s]erial_app' > /dev/null 2>&1 && echo '🟢 Algoritmo serial está RODANDO no nó de cômputo!' || echo '🔴 Algoritmo serial NÃO está sendo executado.'"
+	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "NODE=\$$(head -n 1 $(REMOTE_HOST_FILE) | sed 's/ .*//') && ssh \$$NODE 'pgrep -f [s]erial_app' > /dev/null 2>&1 && echo '🟢 Algoritmo serial está RODANDO no nó de cômputo!' || echo '🔴 Algoritmo serial NÃO está sendo executado.'"
 
 clean-notes-serial: ## Apaga os resultados do serial (local e VPS)
 	@echo "Limpando análises do serial na VPS e localmente"
