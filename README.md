@@ -111,6 +111,19 @@ Como o cálculo do Mandelbrot pode ser demorado (especialmente para matrizes mui
 
 ---
 
+## Checklist do Trabalho
+
+| Tarefa | Status | Observação |
+| :--- | :--- | :--- |
+| Revisar o objetivo do projeto | ✅ Feito | Entendimento inicial concluído |
+| test | 🔄 test | test |
+
+### Legenda
+- 🛑 Não feito
+- 🔄 Fazendo
+- ✅ Feito
+
+
 ## Arquivos e Estrutura
 
 - `Makefile` — Regras de compilação, envio e análise do projeto.
