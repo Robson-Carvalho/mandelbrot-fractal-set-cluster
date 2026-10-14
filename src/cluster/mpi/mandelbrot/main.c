@@ -34,11 +34,8 @@ int main(int argc, char **argv) {
     double maxY = atof(argv[6]);
     int max_iter = atoi(argv[7]);
 
-    int my_rows = 0;
-    for (int i = rank; i < rows; i += size) {
-        my_rows++;
-    }
-
+    int my_rows = rows / size + (rank < rows % size);
+    
     // tamanho da linha
     size_t line_bytes = (size_t)columns * 3;
 
@@ -86,11 +83,7 @@ int main(int argc, char **argv) {
 
         int accumulated_bytes = 0;
         for (int process_id = 0; process_id < size; process_id++) {
-            // Conta quantas linhas o 'process_id' processou
-            int lines_this_process = 0;
-            for (int line = process_id; line < rows; line += size) {
-                lines_this_process++;
-            }
+            int lines_this_process = rows / size + (process_id < rows % size);
             
             int bytes_this_process = lines_this_process * (int)line_bytes;
             // A quantidade de bytes de cada processo armazenado no index de sua referência 
@@ -126,6 +119,7 @@ int main(int argc, char **argv) {
             unsigned char *source      = &gathered_buffer[source_index];
             unsigned char *destination = &full_image[destination_index];
 
+            // ocorre a troca de uma faixa de bytes de um vez de tamanho line _bytes (a linha inteira no caso)
             memcpy(destination, source, line_bytes);
         }
     }
