@@ -67,7 +67,7 @@ int main(int argc, char **argv) {
 
             unsigned char pixel_value;
 
-            if (result.check == 1) { 
+             if (result.check == 1 || result.iterations_to_scape == max_iter) {
                 pixel_value = 0;
             } else {
                 int iter = result.iterations_to_scape;

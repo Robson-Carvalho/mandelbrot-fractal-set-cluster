@@ -55,7 +55,8 @@ int main(int argc, char **argv) {
             Mandelbrot_check_return result = check_mandelbrot(c, max_iter);
 
             unsigned char color_intensity;
-            if (result.check == 1) {
+            
+            if (result.check == 1 || result.iterations_to_scape == max_iter) {
                 color_intensity = 0;
             } else {
                 color_intensity = (unsigned char)(sin(0.1 * result.iterations_to_scape) * 127.5 + 127.5);

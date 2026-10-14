@@ -19,5 +19,6 @@ Mandelbrot_check_return check_mandelbrot(Complex_number c, int max_iter){
     }
 
     Complex_number fval = {fr, fi};
+    
     return (Mandelbrot_check_return){1, fval, max_iter};
 }
