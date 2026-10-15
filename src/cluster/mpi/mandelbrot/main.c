@@ -49,6 +49,7 @@ int main(int argc, char **argv) {
     double t_comp = 0.0;
     double t_comm = 0.0;
     double t_total = 0.0;
+    double t_reorder = 0.0; // medido apenas no rank 0 (memcpy de reordenação), fica dentro do Ttotal
 
     MPI_Barrier(MPI_COMM_WORLD);
     double t_section_start = MPI_Wtime();
@@ -134,6 +135,8 @@ int main(int argc, char **argv) {
     t_comm += MPI_Wtime() - gatherv_start;
 
     if (rank == 0) {
+        // Medição local ao rank 0: não adiciona nenhuma chamada MPI nem sincronização
+        double reorder_start = MPI_Wtime();
         for (int real_line = 0; real_line < rows; real_line++) {
             int owner = real_line % size;
             int line_in_block = real_line / size;
@@ -147,9 +150,15 @@ int main(int argc, char **argv) {
             // ocorre a troca de uma faixa de bytes de um vez de tamanho line_bytes (a linha inteira no caso)
             memcpy(destination, source, line_bytes);
         }
+        t_reorder = MPI_Wtime() - reorder_start;
     }
 
-    // Gerar a imagem.
+    free(my_lines);
+
+    MPI_Barrier(MPI_COMM_WORLD);
+    t_total = MPI_Wtime() - t_section_start;
+
+    // Gerar a imagem (movido para depois do Barrier final, fora do Ttotal).
     if (rank == 0) {
         char *filename = (argc > 8) ? argv[8] : "mandelbrot_mpi.ppm";
         FILE *file_image = fopen(filename, "wb");
@@ -165,15 +174,13 @@ int main(int argc, char **argv) {
         free(byte_offsets_in_buffer);
     }
 
-    free(my_lines);
-
-    MPI_Barrier(MPI_COMM_WORLD);
-    t_total = MPI_Wtime() - t_section_start;
-
     printf("\nRank %d\n", rank);
     printf("  Tcomp  = %.6f s\n", t_comp);
     printf("  Tcomm  = %.6f s\n", t_comm);
     printf("  Ttotal = %.6f s\n", t_total);
+    if (rank == 0) {
+        printf("  Treorder (so rank 0, dentro do Ttotal) = %.6f s\n", t_reorder);
+    }
 
     double comp_sum = 0.0, comp_sum_sq = 0.0;
     double comp_max = 0.0, comp_min = 0.0;
@@ -182,20 +189,20 @@ int main(int argc, char **argv) {
     double total_sum = 0.0, total_sum_sq = 0.0;
     double total_max = 0.0, total_min = 0.0;
 
-    MPI_Allreduce(&t_comp, &comp_sum, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(&t_comp, &comp_max, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
-    MPI_Allreduce(&t_comp, &comp_min, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
-    MPI_Allreduce(&(double){ t_comp * t_comp }, &comp_sum_sq, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Reduce(&t_comp, &comp_sum, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&t_comp, &comp_max, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&t_comp, &comp_min, 1, MPI_DOUBLE, MPI_MIN, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&(double){ t_comp * t_comp }, &comp_sum_sq, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
 
-    MPI_Allreduce(&t_comm, &comm_sum, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(&t_comm, &comm_max, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
-    MPI_Allreduce(&t_comm, &comm_min, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
-    MPI_Allreduce(&(double){ t_comm * t_comm }, &comm_sum_sq, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Reduce(&t_comm, &comm_sum, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&t_comm, &comm_max, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&t_comm, &comm_min, 1, MPI_DOUBLE, MPI_MIN, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&(double){ t_comm * t_comm }, &comm_sum_sq, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
 
-    MPI_Allreduce(&t_total, &total_sum, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(&t_total, &total_max, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
-    MPI_Allreduce(&t_total, &total_min, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
-    MPI_Allreduce(&(double){ t_total * t_total }, &total_sum_sq, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Reduce(&t_total, &total_sum, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&t_total, &total_max, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&t_total, &total_min, 1, MPI_DOUBLE, MPI_MIN, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&(double){ t_total * t_total }, &total_sum_sq, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
 
     if (rank == 0) {
         double comp_mean = comp_sum / size;
