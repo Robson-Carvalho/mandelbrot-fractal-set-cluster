@@ -1,0 +1,9 @@
+Imagem salva com sucesso em '/home/grupob/pictures/mandelbrot/mandelbrot-20261014-210229.ppm'
+Rank 0: Tcomp=0.001344 s | Tcomm=0.000047 s | Ttotal=0.012751 s
+
+Resumo estatístico entre os 1 ranks:
+Tcomp: Tmax=0.001344 s | Tmin=0.001344 s | Tmédia=0.001344 s | Desvio padrão=0.000000 s
+Tcomm: Tmax=0.000047 s | Tmin=0.000047 s | Tmédia=0.000047 s | Desvio padrão=0.000000 s
+Ttotal: Tmax=0.012751 s | Tmin=0.012751 s | Tmédia=0.012751 s | Desvio padrão=0.000000 s
+Interpretacao: o tempo paralelo efetivo e dado por Tmax(Ttotal), porque o rank mais lento limita o desempenho do programa paralelo. A media de Ttotal indica o balanceamento de carga: quanto mais proximos os valores, melhor e mais equilibrado o trabalho entre os ranks.
+Resolução MPI_Wtick: 0.000000001 s

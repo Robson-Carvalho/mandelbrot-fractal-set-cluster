@@ -1,0 +1,28 @@
+Imagem salva com sucesso em '/home/grupob/pictures/mandelbrot/mandelbrot-20261014-211056.ppm'
+
+Rank 0
+  Tcomp  = 5.054176 s
+  Tcomm  = 0.774570 s
+  Ttotal = 7.249636 s
+
+Rank 3
+  Tcomp  = 5.050922 s
+  Tcomm  = 0.768757 s
+  Ttotal = 7.249506 s
+
+Rank 1
+  Tcomp  = 5.050982 s
+  Tcomm  = 0.258838 s
+  Ttotal = 7.250204 s
+
+Rank 2
+  Tcomp  = 5.048590 s
+  Tcomm  = 0.519645 s
+  Ttotal = 7.249843 s
+
+Resumo estatístico entre os 4 ranks
+  Tcomp : Tmax=5.054176 s | Tmin=5.048590 s | Media=5.051167 s | Desvio=0.001987 s
+  Tcomm : Tmax=0.774570 s | Tmin=0.258838 s | Media=0.580452 s | Desvio=0.212293 s
+  Ttotal: Tmax=7.250204 s | Tmin=7.249506 s | Media=7.249797 s | Desvio=0.000264 s
+
+Resolução MPI_Wtick: 0.000000001 s
