@@ -1,0 +1,14 @@
+Imagem salva com sucesso em '/home/grupob/pictures/mandelbrot/mandelbrot-20261015-013052-1.ppm'
+
+Rank 0
+  Tcomp  = 3292.176539 s
+  Tcomm  = 205.099847 s
+  Ttotal = 3667.938069 s
+  Treorder (so rank 0, dentro do Ttotal) = 169.086509 s
+
+Resumo estatístico entre os 1 ranks
+  Tcomp : Tmax=3292.176539 s | Tmin=3292.176539 s | Media=3292.176539 s | Desvio=0.000000 s
+  Tcomm : Tmax=205.099847 s | Tmin=205.099847 s | Media=205.099847 s | Desvio=0.000000 s
+  Ttotal: Tmax=3667.938069 s | Tmin=3667.938069 s | Media=3667.938069 s | Desvio=0.000000 s
+
+Resolução MPI_Wtick: 0.000000001 s

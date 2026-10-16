@@ -1,0 +1,19 @@
+
+Rank 1
+  Tcomp  = 0.001616 s
+  Tcomm  = 0.000043 s
+  Ttotal = 0.002484 s
+Imagem salva com sucesso em '/home/grupob/pictures/mandelbrot/mandelbrot-smoke-np-2-20261015-011509.ppm'
+
+Rank 0
+  Tcomp  = 0.001609 s
+  Tcomm  = 0.000870 s
+  Ttotal = 0.002511 s
+  Treorder (so rank 0, dentro do Ttotal) = 0.000018 s
+
+Resumo estatístico entre os 2 ranks
+  Tcomp : Tmax=0.001616 s | Tmin=0.001609 s | Media=0.001612 s | Desvio=0.000004 s
+  Tcomm : Tmax=0.000870 s | Tmin=0.000043 s | Media=0.000456 s | Desvio=0.000414 s
+  Ttotal: Tmax=0.002511 s | Tmin=0.002484 s | Media=0.002497 s | Desvio=0.000014 s
+
+Resolução MPI_Wtick: 0.000000001 s

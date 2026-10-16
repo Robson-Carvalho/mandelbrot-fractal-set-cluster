@@ -34,19 +34,19 @@ REMOTE_SPMD_NOTES_DIR := $(REMOTE_NOTES_DIR)/mandelbrot_spmd
 HOST_FILE ?= host_nodes
 REMOTE_HOST_FILE := $(REMOTE_DIR)/host_nodes
 NP ?= 4
-PARS ?=
+PARS ?= 200 200 -2 1 -1 1 50
 
 RUN_ID := $(shell date +%Y%m%d-%H%M%S)
 
 ifneq ($(PASSWORD),)
-    SSH_CMD := sshpass -p '$(PASSWORD)' ssh
-    SCP_CMD := sshpass -p '$(PASSWORD)' scp
+	SSH_CMD := sshpass -p '$(PASSWORD)' ssh
+	SCP_CMD := sshpass -p '$(PASSWORD)' scp
 else
-    SSH_CMD := ssh
-    SCP_CMD := scp
+	SSH_CMD := ssh
+	SCP_CMD := scp
 endif
 
-.PHONY: help hello-cluster sync-cluster build-hello run-hello sync-notes sync-pictures clean-pictures clean-notes-hello all-hello build-mpi run-mpi all-mpi clean-notes-mpi build-mandelbrot run-mandelbrot clean-notes-mandelbrot all-mandelbrot check-mandelbrot stop-mandelbrot build-serial run-serial check-serial clean-notes-serial all-serial
+.PHONY: help hello-cluster sync-cluster build-hello run-hello sync-notes sync-pictures clean-pictures clean-notes-hello all-hello build-mpi run-mpi all-mpi clean-notes-mpi build-mandelbrot run-mandelbrot clean-notes-mandelbrot all-mandelbrot check-mandelbrot stop-mandelbrot build-spmd run-spmd check-spmd clean-notes-spmd all-spmd build-serial run-serial check-serial clean-notes-serial all-serial
 
 help: ## Exibe esta mensagem de ajuda
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z0-9_-]+:.*?## / {printf "\033[36m%-25s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -113,7 +113,7 @@ build-mpi: ## Compila o hello_mpi com mpicc
 
 run-mpi: ## Executa o hello_mpi em background no cluster
 	@echo "Executando hello_mpi no cluster com nohup em background"
-	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "mkdir -p $(REMOTE_MPI_NOTES_DIR) && cd $(REMOTE_MPI_DIR) && nohup mpirun -np $(NP) -machinefile $(REMOTE_HOST_FILE) ./hello_mpi $(PARS) > $(REMOTE_MPI_NOTES_DIR)/mpi-$(RUN_ID).log 2>&1 &"
+	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "mkdir -p $(REMOTE_MPI_NOTES_DIR) && cd $(REMOTE_MPI_DIR) && nohup bash -c '( time mpirun -np $(NP) -machinefile $(REMOTE_HOST_FILE) ./hello_mpi $(PARS) )' > $(REMOTE_MPI_NOTES_DIR)/mpi-$(RUN_ID).log 2>&1 < /dev/null &"
 
 clean-notes-mpi: ## Apaga os resultados do hello_mpi (local e VPS)
 	@echo "Limpando análises do mpi na VPS e localmente"
@@ -128,7 +128,7 @@ build-mandelbrot: ## Compila o mandelbrot com mpicc
 
 run-mandelbrot: ## Executa o mandelbrot em background no cluster
 	@echo "Executando mandelbrot no cluster com nohup em background"
-	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "mkdir -p $(REMOTE_MANDELBROT_NOTES_DIR) && mkdir -p $(REMOTE_MANDELBROT_PICTURES_DIR) && cd $(REMOTE_MANDELBROT_DIR) && echo 'nohup mpirun -np $(NP) -machinefile $(REMOTE_HOST_FILE) ./mandelbrot $(PARS) $(REMOTE_MANDELBROT_PICTURES_DIR)/mandelbrot-$(RUN_ID).ppm > $(REMOTE_MANDELBROT_NOTES_DIR)/mandelbrot-$(RUN_ID).log 2>&1 < /dev/null &' > run_bg.sh && bash run_bg.sh"
+	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "mkdir -p $(REMOTE_MANDELBROT_NOTES_DIR) && mkdir -p $(REMOTE_MANDELBROT_PICTURES_DIR) && cd $(REMOTE_MANDELBROT_DIR) && echo 'nohup bash -c \"( time mpirun -np $(NP) -machinefile $(REMOTE_HOST_FILE) ./mandelbrot $(PARS) $(REMOTE_MANDELBROT_PICTURES_DIR)/mandelbrot-$(RUN_ID).ppm )\" > $(REMOTE_MANDELBROT_NOTES_DIR)/mandelbrot-$(RUN_ID).log 2>&1 < /dev/null &' > run_bg.sh && bash run_bg.sh"
 
 check-mandelbrot: ## Checa se o mandelbrot está rodando no cluster
 	@echo "Verificando status do processo no cluster..."
@@ -151,7 +151,7 @@ build-spmd: ## Compila o mandelbrot_spmd com mpicc
 
 run-spmd: ## Executa o mandelbrot_spmd em background no cluster
 	@echo "Executando mandelbrot_spmd no cluster com nohup em background"
-	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "mkdir -p $(REMOTE_SPMD_NOTES_DIR) && mkdir -p $(REMOTE_PICTURES_DIR)/mandelbrot_spmd && cd $(REMOTE_SPMD_DIR) && echo 'nohup mpirun -np $(NP) -machinefile $(REMOTE_HOST_FILE) ./mandelbrot_spmd $(PARS) $(REMOTE_PICTURES_DIR)/mandelbrot_spmd/spmd-$(RUN_ID).ppm > $(REMOTE_SPMD_NOTES_DIR)/spmd-$(RUN_ID).log 2>&1 < /dev/null &' > run_bg.sh && bash run_bg.sh"
+	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "mkdir -p $(REMOTE_SPMD_NOTES_DIR) && mkdir -p $(REMOTE_PICTURES_DIR)/mandelbrot_spmd && cd $(REMOTE_SPMD_DIR) && echo 'nohup bash -c \"( time mpirun -np $(NP) -machinefile $(REMOTE_HOST_FILE) ./mandelbrot_spmd $(PARS) $(REMOTE_PICTURES_DIR)/mandelbrot_spmd/spmd-$(RUN_ID).ppm )\" > $(REMOTE_SPMD_NOTES_DIR)/spmd-$(RUN_ID).log 2>&1 < /dev/null &' > run_bg.sh && bash run_bg.sh"
 
 check-spmd: ## Checa se o mandelbrot_spmd está rodando no cluster
 	@echo "Verificando status do processo no cluster..."
@@ -170,7 +170,7 @@ build-serial: ## Compila o serial com gcc
 
 run-serial: ## Executa o serial em background no nó de cômputo
 	@echo "Executando serial no nó de cômputo com nohup em background"
-	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "mkdir -p $(REMOTE_SERIAL_NOTES_DIR) && mkdir -p $(REMOTE_SERIAL_PICTURES_DIR) && NODE=\$$(head -n 1 $(REMOTE_HOST_FILE) | sed 's/ .*//') && echo \"nohup ssh \$$NODE 'cd $(REMOTE_SERIAL_DIR) && ./serial_app $(PARS) $(REMOTE_SERIAL_PICTURES_DIR)/serial-$(RUN_ID).ppm' > $(REMOTE_SERIAL_NOTES_DIR)/serial-$(RUN_ID).log 2>&1 < /dev/null &\" > run_bg.sh && bash run_bg.sh"
+	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "mkdir -p $(REMOTE_SERIAL_NOTES_DIR) && mkdir -p $(REMOTE_SERIAL_PICTURES_DIR) && NODE=\$$(head -n 1 $(REMOTE_HOST_FILE) | sed 's/ .*//') && echo \"nohup ssh \$$NODE 'cd $(REMOTE_SERIAL_DIR) && ( time ./serial_app $(PARS) $(REMOTE_SERIAL_PICTURES_DIR)/serial-$(RUN_ID).ppm )' > $(REMOTE_SERIAL_NOTES_DIR)/serial-$(RUN_ID).log 2>&1 < /dev/null &\" > run_bg.sh && bash run_bg.sh"
 
 check-serial: ## Checa se o serial está rodando no nó de cômputo
 	@echo "Verificando status do processo no nó de cômputo..."
