@@ -1,42 +1,24 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <math.h>
 #include <time.h>
 #include <sys/resource.h>
 #include "complex.h"
 #include "mandelbrot.h"
 
-int mandelbrot(int px, int py, int width, int height, double minX, double maxX, double minY, double maxY, int max_iter) {
-    Complex_number c;
-
-    double unidades_largura = maxX - minX; 
-    double unidades_altura = maxY - minY; 
-
-    double proporcao_x = (px / (double)width); 
-    double proporcao_y = (py / (double)height); 
-
-    double deslocamento_x = unidades_largura * proporcao_x; 
-    double deslocamento_y = unidades_altura * proporcao_y;
-
-    double enquadramento_eixo_x = minX + deslocamento_x;
-    double enquadramento_eixo_y = maxY - deslocamento_y;
-
-    c = (Complex_number){enquadramento_eixo_x, enquadramento_eixo_y};
-
-    Mandelbrot_check_return result = check_mandelbrot(c, max_iter);
-    
-    return result.iterations_to_scape;
+static double elapsed_s(struct timespec a, struct timespec b) {
+    return (b.tv_sec - a.tv_sec) + (b.tv_nsec - a.tv_nsec) / 1e9;
 }
 
 int main(int argc, char *argv[]) {
-    // Voltamos a exigir 8 argumentos (o último é o nome do arquivo da imagem)
     if (argc < 9) {
-        printf("Uso: %s <width> <height> <minX> <maxX> <minY> <maxY> <max_iter> <output_filename>\n", argv[0]);
+        printf("Uso: %s <rows> <cols> <minX> <maxX> <minY> <maxY> <max_iter> <output_filename>\n", argv[0]);
         return 1;
     }
 
-    int width = atoi(argv[1]);
-    int height = atoi(argv[2]);
+    int columns = atoi(argv[1]);
+    int rows = atoi(argv[2]);
     double minX = atof(argv[3]);
     double maxX = atof(argv[4]);
     double minY = atof(argv[5]);
@@ -44,58 +26,72 @@ int main(int argc, char *argv[]) {
     int max_iter = atoi(argv[7]);
     char *filename = argv[8];
 
-    printf("Iniciando cálculos e geração da imagem...\n");
-    printf("Resolucao: %dx%d | Iteracoes: %d\n", width, height, max_iter);
-    printf("Salvando em: %s\n", filename);
+    size_t total_bytes = (size_t)rows * (size_t)columns * 3;
+    unsigned char *buffer = (unsigned char *)malloc(total_bytes);
+    if (!buffer) {
+        fprintf(stderr, "Falha no malloc de %zu bytes\n", total_bytes);
+        return 1;
+    }
+    memset(buffer, 0, total_bytes);
 
+    struct timespec t_start, t_end;
+    clock_gettime(CLOCK_MONOTONIC, &t_start);
+
+    double unidades_largura = maxX - minX;
+    double unidades_altura = maxY - minY;
+    size_t idx = 0;
+
+    for (int i = 0; i < rows; i++) {
+        for (int e = 0; e < columns; e++) {
+            Complex_number c;
+
+            double proporcao_x = (e / (double)columns);
+            double proporcao_y = (i / (double)rows);
+
+            double deslocamento_x = unidades_largura * proporcao_x;
+            double deslocamento_y = unidades_altura * proporcao_y;
+
+            c.real = minX + deslocamento_x;
+            c.imag = maxY - deslocamento_y;
+
+            Mandelbrot_check_return result = check_mandelbrot(c, max_iter);
+
+            unsigned char pixel_value;
+            if (result.check == 1 || result.iterations_to_scape == max_iter) {
+                pixel_value = 0;
+            } else {
+                int iter = result.iterations_to_scape;
+                pixel_value = (unsigned char)(sin(0.1 * iter) * 127.5 + 127.5);
+            }
+
+            buffer[idx++] = pixel_value; // R
+            buffer[idx++] = pixel_value; // G
+            buffer[idx++] = pixel_value; // B
+        }
+    }
+
+    clock_gettime(CLOCK_MONOTONIC, &t_end);
+    double t_comp = elapsed_s(t_start, t_end);
+
+    struct timespec io_start, io_end;
+    clock_gettime(CLOCK_MONOTONIC, &io_start);
     FILE *file_image = fopen(filename, "wb");
     if (!file_image) {
         perror("Erro ao abrir arquivo para escrita");
         return 1;
     }
-
-    // Cabeçalho do formato PPM
-    fprintf(file_image, "P6\n%d %d\n255\n", width, height);
-
-    // --- Início da medição de tempo ---
-    struct timespec t_start, t_end;
-    clock_gettime(CLOCK_MONOTONIC, &t_start);
-
-    for (int py = 0; py < height; py++) {
-         for (int px = 0; px < width; px++) {
-            int iter = mandelbrot(px, py, width, height, minX, maxX, minY, maxY, max_iter);
-            
-            unsigned char r, g, b;
-
-            // Dentro do limite (pertence ao conjunto - Preto)
-            if (iter == max_iter) { 
-                r = g = b = 0;
-            } 
-            // Fora do limite (Divergiu - Colorido)
-            else {
-                // Cálculo de cor suave baseado nas iterações
-                unsigned char tom = (unsigned char)(sin(0.1 * iter) * 127.5 + 127.5);
-                r = g = b = tom;
-            }       
-
-            // Escreve os pixels no arquivo
-            fputc(r, file_image);
-            fputc(g, file_image);
-            fputc(b, file_image);
-         }
-    }
-
-    // --- Fim da medição de tempo ---
-    clock_gettime(CLOCK_MONOTONIC, &t_end);
-    double elapsed = (t_end.tv_sec - t_start.tv_sec) +
-                     (t_end.tv_nsec - t_start.tv_nsec) / 1e9;
-    
+    fprintf(file_image, "P6\n%d %d\n255\n", columns, rows);
+    fwrite(buffer, sizeof(unsigned char), total_bytes, file_image);
     fclose(file_image);
+    clock_gettime(CLOCK_MONOTONIC, &io_end);
+    double t_io = elapsed_s(io_start, io_end);
 
-    // -------------------------------------------------
-    // Relatórios de Execução e Recursos
-    printf("\n=== RESULTADOS ===\n");
-    printf("Tempo de processamento (CPU + I/O) : %.6f segundos\n", elapsed);
+    free(buffer);
+
+    printf("\nSerial\n");
+    printf("  Tcomp  = %.6f s\n", t_comp);
+    printf("  Ttotal = %.6f s\n", t_comp);
+    printf("  Tio    = %.6f s\n", t_io);
 
     struct rusage usage;
     getrusage(RUSAGE_SELF, &usage);
