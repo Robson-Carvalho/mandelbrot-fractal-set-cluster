@@ -1,0 +1,50 @@
+[Rank 3] Finalizado! Processei 2520 linhas.
+[Rank 1] Finalizado! Processei 2520 linhas.
+
+Rank 3
+  Tcomp  = 19.763201 s
+  Tcomm  = 75.600538 s
+  Twait  = 72.638841 s
+[Rank 0] Finalizado! Processei 2520 linhas.
+[Rank 0] Imagem montada com sucesso! O array global_buffer tem 457228800 bytes ordenados.
+[Rank 2] Finalizado! Processei 2520 linhas.
+
+Rank 2
+  Tcomp  = 92.402153 s
+  Tcomm  = 2.961840 s
+  Twait  = 0.000113 s
+  Tgather= 1.969147 s
+  Tbar   = 0.992580 s
+  Ttotal = 95.363994 s
+
+Rank 1
+  Tcomp  = 92.363259 s
+  Tcomm  = 3.001658 s
+  Twait  = 0.039927 s
+  Tgather= 0.992247 s
+  Tbar   = 1.969484 s
+  Ttotal = 95.364919 s
+  Tgather= 2.952409 s
+  Tbar   = 0.009288 s
+  Ttotal = 95.363741 s
+[Rank 0] Imagem salva em: /tmp/strong-P4-r1.ppm
+
+Rank 0
+  Tcomp  = 19.739882 s
+  Tcomm  = 75.625714 s
+  Twait  = 72.663920 s
+  Tgather= 2.961761 s
+  Tbar   = 0.000034 s
+  Ttotal = 95.365598 s
+  Tio    = 5.994378 s
+
+Resumo estatístico entre os 4 ranks
+  Tcomp  : Tmax=92.402153 s | Tmin=19.739882 s | Media=56.067124 s | Desvio=36.315586 s
+  Tcomm  : Tmax=75.625714 s | Tmin=2.961840 s | Media=39.297438 s | Desvio=36.315693 s
+  Twait  : Tmax=72.663920 s | Tmin=0.000113 s | Media=36.335700 s | Desvio=36.315684 s
+  Tgather: Tmax=2.961761 s | Tmin=0.992247 s | Media=2.218891 s | Desvio=0.815005 s
+  Tbar   : Tmax=1.969484 s | Tmin=0.000034 s | Media=0.742847 s | Desvio=0.814998 s
+  Ttotal : Tmax=95.365598 s | Tmin=95.363741 s | Media=95.364563 s | Desvio=0.000741 s
+  Tio (rank 0, fora do Ttotal): 5.994378 s
+
+Resolução MPI_Wtick: 0.000000001 s

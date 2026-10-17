@@ -1,0 +1,16 @@
+Warning: Permanently added '10.0.0.23' (ED25519) to the list of known hosts.
+[Rank 0] Finalizado! Processei 30240 linhas.
+[Rank 0] Imagem montada com sucesso! O array global_buffer tem 1828915200 bytes ordenados.
+[Rank 0] Imagem salva em: /tmp/strong-P1-r1.ppm
+
+Rank 0
+  Tcomp  = 318.029542 s
+  Tcomm  = 192.509877 s
+  Ttotal = 511.740164 s
+
+Resumo estatístico entre os 1 ranks
+  Tcomp : Tmax=318.029542 s | Tmin=318.029542 s | Media=318.029542 s | Desvio=0.000000 s
+  Tcomm : Tmax=192.509877 s | Tmin=192.509877 s | Media=192.509877 s | Desvio=0.000000 s
+  Ttotal: Tmax=511.740164 s | Tmin=511.740164 s | Media=511.740164 s | Desvio=0.000000 s
+
+Resolução MPI_Wtick: 0.000000001 s

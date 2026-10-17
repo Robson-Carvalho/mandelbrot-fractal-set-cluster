@@ -1,0 +1,32 @@
+[Rank 1] Finalizado! Processei 5040 linhas.
+[Rank 0] Finalizado! Processei 5040 linhas.
+[Rank 0] Imagem montada com sucesso! O array global_buffer tem 457228800 bytes ordenados.
+
+Rank 1
+  Tcomp  = 112.159080 s
+  Tcomm  = 2.417849 s
+  Twait  = 0.000067 s
+  Tgather= 2.404527 s
+  Tbar   = 0.013256 s
+  Ttotal = 114.576931 s
+[Rank 0] Imagem salva em: /tmp/strong-P2-r1.ppm
+
+Rank 0
+  Tcomp  = 112.092957 s
+  Tcomm  = 2.485592 s
+  Twait  = 0.067838 s
+  Tgather= 2.417738 s
+  Tbar   = 0.000017 s
+  Ttotal = 114.578550 s
+  Tio    = 6.465104 s
+
+Resumo estatístico entre os 2 ranks
+  Tcomp  : Tmax=112.159080 s | Tmin=112.092957 s | Media=112.126018 s | Desvio=0.033062 s
+  Tcomm  : Tmax=2.485592 s | Tmin=2.417849 s | Media=2.451721 s | Desvio=0.033871 s
+  Twait  : Tmax=0.067838 s | Tmin=0.000067 s | Media=0.033952 s | Desvio=0.033886 s
+  Tgather: Tmax=2.417738 s | Tmin=2.404527 s | Media=2.411132 s | Desvio=0.006605 s
+  Tbar   : Tmax=0.013256 s | Tmin=0.000017 s | Media=0.006636 s | Desvio=0.006619 s
+  Ttotal : Tmax=114.578550 s | Tmin=114.576931 s | Media=114.577740 s | Desvio=0.000810 s
+  Tio (rank 0, fora do Ttotal): 6.465104 s
+
+Resolução MPI_Wtick: 0.000000001 s

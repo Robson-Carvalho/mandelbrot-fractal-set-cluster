@@ -1,0 +1,13 @@
+
+Serial
+  Tcomp  = 224.264233 s
+  Ttotal = 224.264233 s
+  Tio    = 5.442700 s
+
+=== RECURSOS DO SISTEMA ===
+Memoria maxima usada (Max RSS)   : 448416 KB
+Page faults (Soft/Recuperaveis)  : 327
+Page faults (Hard/Disco)         : 0
+Trocas de contexto voluntarias   : 293
+Trocas de contexto involuntarias : 338
+===========================
