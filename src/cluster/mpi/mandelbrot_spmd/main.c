@@ -36,20 +36,25 @@ int main(int argc, char **argv) {
 
     if (argc < 8) {
         if (rank == 0) {
-            printf("Uso: make all-spmd PARS=\"<rows> <cols> <minX> <maxX> <minY> <maxY> <max_iter>\"\n");
+            printf("Uso: make all-spmd PARS=\"<largura> <altura> <minX> <maxX> <minY> <maxY> <max_iter>\"\n");
             printf("Exemplo: make all-spmd PARS=\"2000 2000 -2.0 1.0 -1.5 1.5 1000\"\n");
+            printf("Opcional apos os 7 parametros: <arquivo|-> <num_imagens>\n");
         }
         MPI_Finalize();
         return -1;
     }
 
-    int columns = atoi(argv[1]);
-    int rows = atoi(argv[2]);
+    int columns = atoi(argv[1]);   
+    int rows = atoi(argv[2]);      
     double minX = atof(argv[3]);
     double maxX = atof(argv[4]);
     double minY = atof(argv[5]);
     double maxY = atof(argv[6]);
     int max_iter = atoi(argv[7]);
+
+    int write_image = (argc >= 9 && strcmp(argv[8], "-") != 0);
+    int num_images = (argc >= 10) ? atoi(argv[9]) : 1;
+    if (num_images < 1) num_images = 1;
 
     int lines_per_rank = rows / size;
     int start_row = rank * lines_per_rank;
@@ -66,6 +71,7 @@ int main(int argc, char **argv) {
         return 1;
     }
 
+    /* ---------- Alocacao + pre-touch (fora do cronometro) ---------- */
     unsigned char *local_buffer = (unsigned char *)malloc(local_bytes);
     if (!local_buffer) {
         fprintf(stderr, "[Rank %d] Falha no malloc do local_buffer (%zu bytes)\n", rank, local_bytes);
@@ -108,52 +114,53 @@ int main(int argc, char **argv) {
     MPI_Barrier(MPI_COMM_WORLD);
     double t_section_start = MPI_Wtime();
 
-    double compute_start = MPI_Wtime();
-    size_t buffer_index = 0;
-    for (int i = start_row; i < end_row; i++) {
-        for (int e = 0; e < columns; e++) {
-            Complex_number c;
+    for (int img = 0; img < num_images; img++) {
+        double compute_start = MPI_Wtime();
+        size_t buffer_index = 0;
+        for (int i = start_row; i < end_row; i++) {
+            for (int e = 0; e < columns; e++) {
+                Complex_number c;
 
-            double unidades_largura = maxX - minX;
-            double unidades_altura = maxY - minY;
+                double unidades_largura = maxX - minX;
+                double unidades_altura = maxY - minY;
 
-            double proporcao_x = (e / (double)columns);
-            double proporcao_y = (i / (double)rows);
+                double proporcao_x = (e / (double)columns);
+                double proporcao_y = (i / (double)rows);
 
-            double deslocamento_x = unidades_largura * proporcao_x;
-            double deslocamento_y = unidades_altura * proporcao_y;
+                double deslocamento_x = unidades_largura * proporcao_x;
+                double deslocamento_y = unidades_altura * proporcao_y;
 
-            c.real = minX + deslocamento_x;
-            c.imag = maxY - deslocamento_y;
+                c.real = minX + deslocamento_x;
+                c.imag = maxY - deslocamento_y;
 
-            Mandelbrot_check_return result = check_mandelbrot(c, max_iter);
+                Mandelbrot_check_return result = check_mandelbrot(c, max_iter);
 
-            unsigned char pixel_value;
-            if (result.check == 1 || result.iterations_to_scape == max_iter) {
-                pixel_value = 0;
-            } else {
-                int iter = result.iterations_to_scape;
-                pixel_value = (unsigned char)(sin(0.1 * iter) * 127.5 + 127.5);
+                unsigned char pixel_value;
+                if (result.check == 1 || result.iterations_to_scape == max_iter) {
+                    pixel_value = 0;
+                } else {
+                    int iter = result.iterations_to_scape;
+                    pixel_value = (unsigned char)(sin(0.1 * iter) * 127.5 + 127.5);
+                }
+
+                local_buffer[buffer_index++] = pixel_value; // R
+                local_buffer[buffer_index++] = pixel_value; // G
+                local_buffer[buffer_index++] = pixel_value; // B
             }
-
-            local_buffer[buffer_index++] = pixel_value; // R
-            local_buffer[buffer_index++] = pixel_value; // G
-            local_buffer[buffer_index++] = pixel_value; // B
         }
-    }
-    t_comp += MPI_Wtime() - compute_start;
+        t_comp += MPI_Wtime() - compute_start;
 
-    if (size > 1) {
-        /* Espera pelos ranks mais lentos (desbalanceamento), separada da transferencia */
-        double w0 = MPI_Wtime();
-        MPI_Barrier(MPI_COMM_WORLD);
-        t_wait += MPI_Wtime() - w0;
+        if (size > 1) {
+            double w0 = MPI_Wtime();
+            MPI_Barrier(MPI_COMM_WORLD);
+            t_wait += MPI_Wtime() - w0;
 
-        double g0 = MPI_Wtime();
-        MPI_Gatherv(local_buffer, (int)local_bytes, MPI_UNSIGNED_CHAR,
-                    global_buffer, recvcounts, displs, MPI_UNSIGNED_CHAR,
-                    0, MPI_COMM_WORLD);
-        t_gather += MPI_Wtime() - g0;
+            double g0 = MPI_Wtime();
+            MPI_Gatherv(local_buffer, (int)local_bytes, MPI_UNSIGNED_CHAR,
+                        global_buffer, recvcounts, displs, MPI_UNSIGNED_CHAR,
+                        0, MPI_COMM_WORLD);
+            t_gather += MPI_Wtime() - g0;
+        }
     }
 
     double b0 = MPI_Wtime();
@@ -161,15 +168,14 @@ int main(int argc, char **argv) {
     t_bar += MPI_Wtime() - b0;
 
     t_total = MPI_Wtime() - t_section_start;
-    double t_comm = t_wait + t_gather + t_bar;   // tudo que e tempo dentro de chamadas MPI
+    double t_comm = t_wait + t_gather + t_bar;
 
-    /* ---------- Fora da secao cronometrada ---------- */
-    printf("[Rank %d] Finalizado! Processei %d linhas.\n", rank, tasks_processed);
+    printf("[Rank %d] Finalizado! Processei %d linhas por imagem (%d imagem(ns)).\n", rank, tasks_processed, num_images);
 
     if (rank == 0) {
         printf("[Rank 0] Imagem montada com sucesso! O array global_buffer tem %zu bytes ordenados.\n", total_bytes);
 
-        if (argc >= 9) {
+        if (write_image) {
             char *filename = argv[8];
             double io0 = MPI_Wtime();
             FILE *file_image = fopen(filename, "wb");
@@ -183,7 +189,7 @@ int main(int argc, char **argv) {
                 perror("[Rank 0] Erro ao abrir arquivo para escrita");
             }
         } else {
-            printf("[Rank 0] Aviso: Nenhum arquivo de imagem foi especificado nos argumentos.\n");
+            printf("[Rank 0] Imagem nao gravada (sem arquivo ou \"-\").\n");
         }
 
         free(recvcounts);
@@ -201,7 +207,7 @@ int main(int argc, char **argv) {
     printf("  Ttotal = %.6f s\n", t_total);
     if (rank == 0) printf("  Tio    = %.6f s\n", t_io);
 
-    if (rank == 0) printf("\nResumo estatístico entre os %d ranks\n", size);
+    if (rank == 0) printf("\nResumo estatístico entre os %d ranks (imagens=%d)\n", size, num_images);
     reduce_stats("Tcomp", t_comp, rank, size);
     reduce_stats("Tcomm", t_comm, rank, size);
     reduce_stats("Twait", t_wait, rank, size);

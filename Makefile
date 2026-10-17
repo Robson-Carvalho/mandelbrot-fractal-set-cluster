@@ -42,6 +42,8 @@ PROCS ?= 1 2 4 8 12
 REPS  ?= 3
 STRONG_PARS ?= 15120 10080 -2 1 -1 1 1500
 
+WEAK_PARS ?= 15120 10080 -2 1 -1 1 1500
+
 ifneq ($(PASSWORD),)
 	SSH_CMD := sshpass -p '$(PASSWORD)' ssh
 	SCP_CMD := sshpass -p '$(PASSWORD)' scp
@@ -50,7 +52,7 @@ else
 	SCP_CMD := scp
 endif
 
-.PHONY: help hello-cluster sync-cluster build-hello run-hello sync-notes sync-pictures clean-pictures clean-notes-hello all-hello build-mpi run-mpi all-mpi clean-notes-mpi build-mandelbrot run-mandelbrot clean-notes-mandelbrot all-mandelbrot check-mandelbrot stop-mandelbrot build-spmd run-spmd check-spmd clean-notes-spmd all-spmd build-serial run-serial check-serial clean-notes-serial all-serial sweep-strong-spmd check-sweep
+.PHONY: help hello-cluster sync-cluster build-hello run-hello sync-notes sync-pictures clean-pictures clean-notes-hello all-hello build-mpi run-mpi all-mpi clean-notes-mpi build-mandelbrot run-mandelbrot clean-notes-mandelbrot all-mandelbrot check-mandelbrot stop-mandelbrot build-spmd run-spmd check-spmd clean-notes-spmd all-spmd build-serial run-serial check-serial clean-notes-serial all-serial sweep-strong-spmd check-sweep sweep-weak-spmd check-sweep-weak
 
 help: ## Exibe esta mensagem de ajuda
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z0-9_-]+:.*?## / {printf "\033[36m%-25s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -172,6 +174,12 @@ sweep-strong-spmd: ## Strong scaling do SPMD (P em PROCS, REPS repeticoes), em b
 
 check-sweep: ## Mostra progresso e se o sweep terminou
 	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "d=\$$(ls -dt $(REMOTE_SPMD_NOTES_DIR)/strong-* | head -1); echo \$$d; tail -n 3 \$$d/progresso.txt; [ -f \$$d/DONE ] && cat \$$d/DONE || echo 'ainda rodando...'"
+
+sweep-weak-spmd: ## Weak scaling do SPMD (P imagens em sequencia), em background
+	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "mkdir -p $(REMOTE_SPMD_NOTES_DIR) && PROCS='$(PROCS)' REPS=$(REPS) PARS='$(WEAK_PARS)' nohup bash ~/cluster/scripts/sweep_weak.sh $(REMOTE_SPMD_DIR) mandelbrot_spmd $(REMOTE_SPMD_NOTES_DIR)/weak-$(RUN_ID) weak > /dev/null 2>&1 < /dev/null &"
+
+check-sweep-weak: ## Mostra progresso e se o sweep weak terminou
+	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "d=\$$(ls -dt $(REMOTE_SPMD_NOTES_DIR)/weak-* | head -1); echo \$$d; tail -n 3 \$$d/progresso.txt; [ -f \$$d/DONE ] && cat \$$d/DONE || echo 'ainda rodando...'"
 
 ### Serial
 
