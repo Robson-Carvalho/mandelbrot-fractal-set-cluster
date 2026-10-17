@@ -38,6 +38,10 @@ PARS ?= 200 200 -2 1 -1 1 50
 
 RUN_ID := $(shell date +%Y%m%d-%H%M%S)
 
+PROCS ?= 1 2 4 8 12
+REPS  ?= 3
+STRONG_PARS ?= 15120 10080 -2 1 -1 1 1500
+
 ifneq ($(PASSWORD),)
 	SSH_CMD := sshpass -p '$(PASSWORD)' ssh
 	SCP_CMD := sshpass -p '$(PASSWORD)' scp
@@ -46,7 +50,7 @@ else
 	SCP_CMD := scp
 endif
 
-.PHONY: help hello-cluster sync-cluster build-hello run-hello sync-notes sync-pictures clean-pictures clean-notes-hello all-hello build-mpi run-mpi all-mpi clean-notes-mpi build-mandelbrot run-mandelbrot clean-notes-mandelbrot all-mandelbrot check-mandelbrot stop-mandelbrot build-spmd run-spmd check-spmd clean-notes-spmd all-spmd build-serial run-serial check-serial clean-notes-serial all-serial
+.PHONY: help hello-cluster sync-cluster build-hello run-hello sync-notes sync-pictures clean-pictures clean-notes-hello all-hello build-mpi run-mpi all-mpi clean-notes-mpi build-mandelbrot run-mandelbrot clean-notes-mandelbrot all-mandelbrot check-mandelbrot stop-mandelbrot build-spmd run-spmd check-spmd clean-notes-spmd all-spmd build-serial run-serial check-serial clean-notes-serial all-serial sweep-strong-spmd check-sweep
 
 help: ## Exibe esta mensagem de ajuda
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z0-9_-]+:.*?## / {printf "\033[36m%-25s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -162,6 +166,13 @@ clean-notes-spmd: ## Apaga os resultados do mandelbrot_spmd (local e VPS)
 	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "rm -rf $(REMOTE_SPMD_NOTES_DIR)"
 	rm -rf $(LOCAL_NOTES_DIR)/mandelbrot_spmd
 
+sweep-strong-spmd: ## Strong scaling do SPMD (P em PROCS, REPS repeticoes), em background
+	@echo "Disparando strong scaling SPMD: P=[$(PROCS)] x $(REPS) repeticoes"
+	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "mkdir -p $(REMOTE_SPMD_NOTES_DIR) && PROCS='$(PROCS)' REPS=$(REPS) PARS='$(STRONG_PARS)' nohup bash ~/cluster/scripts/sweep.sh $(REMOTE_SPMD_DIR) mandelbrot_spmd $(REMOTE_SPMD_NOTES_DIR)/strong-$(RUN_ID) strong > /dev/null 2>&1 < /dev/null &"
+
+check-sweep: ## Mostra progresso e se o sweep terminou
+	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "d=\$$(ls -dt $(REMOTE_SPMD_NOTES_DIR)/strong-* | head -1); echo \$$d; tail -n 3 \$$d/progresso.txt; [ -f \$$d/DONE ] && cat \$$d/DONE || echo 'ainda rodando...'"
+
 ### Serial
 
 build-serial: ## Compila o serial com gcc
@@ -180,3 +191,7 @@ clean-notes-serial: ## Apaga os resultados do serial (local e VPS)
 	@echo "Limpando análises do serial na VPS e localmente"
 	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "rm -rf $(REMOTE_SERIAL_NOTES_DIR)"
 	rm -rf $(LOCAL_NOTES_DIR)/serial
+
+sweep-serial: ## Serial (REPS repeticoes) no primeiro no do host_nodes, em background
+	@echo "Disparando serial: $(REPS) repeticoes"
+	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "mkdir -p $(REMOTE_SERIAL_NOTES_DIR) && REPS=$(REPS) PARS='$(STRONG_PARS)' nohup bash ~/cluster/scripts/sweep_serial.sh $(REMOTE_SERIAL_DIR) serial_app $(REMOTE_SERIAL_NOTES_DIR)/serial-$(RUN_ID) serial > /dev/null 2>&1 < /dev/null &"
