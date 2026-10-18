@@ -1,0 +1,7 @@
+19:39:10 iniciando weak-verif-P1-2img-r1 (P=1, imagens=2)
+19:46:42 iniciando weak-P1-r1 (P=1, imagens=1)
+19:50:29 iniciando weak-P1-r2 (P=1, imagens=1)
+19:54:15 iniciando weak-P1-r3 (P=1, imagens=1)
+19:58:02 iniciando weak-P2-r1 (P=2, imagens=2)
+20:01:52 iniciando weak-P2-r2 (P=2, imagens=2)
+20:05:42 iniciando weak-P2-r3 (P=2, imagens=2)
