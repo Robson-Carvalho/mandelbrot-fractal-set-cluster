@@ -33,8 +33,8 @@ REMOTE_SPMD_NOTES_DIR := $(REMOTE_NOTES_DIR)/mandelbrot_spmd
 
 HOST_FILE ?= host_nodes
 REMOTE_HOST_FILE := $(REMOTE_DIR)/host_nodes
-NP ?= 4
-PARS ?= 200 200 -2 1 -1 1 50
+NP ?= 1
+PARS ?= 15120 10080 -2 1 -1 1 1500
 
 RUN_ID := $(shell date +%Y%m%d-%H%M%S)
 
@@ -52,7 +52,7 @@ else
 	SCP_CMD := scp
 endif
 
-.PHONY: help hello-cluster sync-cluster build-hello run-hello sync-notes sync-pictures clean-pictures clean-notes-hello all-hello build-mpi run-mpi all-mpi clean-notes-mpi build-mandelbrot run-mandelbrot clean-notes-mandelbrot all-mandelbrot check-mandelbrot stop-mandelbrot build-spmd run-spmd check-spmd clean-notes-spmd all-spmd build-serial run-serial check-serial clean-notes-serial all-serial sweep-strong-spmd check-sweep sweep-weak-spmd check-sweep-weak
+.PHONY: help hello-cluster sync-cluster build-hello run-hello sync-notes sync-pictures clean-pictures clean-notes-hello all-hello build-mpi run-mpi all-mpi clean-notes-mpi build-mandelbrot run-mandelbrot clean-notes-mandelbrot all-mandelbrot check-mandelbrot stop-mandelbrot build-spmd run-spmd check-spmd clean-notes-spmd all-spmd build-serial run-serial check-serial clean-notes-serial all-serial sweep-strong-spmd check-sweep sweep-weak-spmd check-sweep-weak sweep-strong-mandelbrot check-sweep-mandelbrot sweep-weak-mandelbrot check-sweep-weak-mandelbrot
 
 help: ## Exibe esta mensagem de ajuda
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z0-9_-]+:.*?## / {printf "\033[36m%-25s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -148,6 +148,20 @@ clean-notes-mandelbrot: ## Apaga os resultados do mandelbrot (local e VPS)
 	@echo "Limpando análises do mandelbrot na VPS e localmente"
 	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "rm -rf $(REMOTE_MANDELBROT_NOTES_DIR)"
 	rm -rf $(LOCAL_NOTES_DIR)/mandelbrot
+
+sweep-strong-mandelbrot: sync-cluster build-mandelbrot ## Strong scaling do mandelbrot otimizado (P em PROCS, REPS repeticoes), em background
+	@echo "Disparando strong scaling mandelbrot: P=[$(PROCS)] x $(REPS) repeticoes"
+	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "mkdir -p $(REMOTE_MANDELBROT_NOTES_DIR) && PROCS='$(PROCS)' REPS=$(REPS) PARS='$(STRONG_PARS)' nohup bash ~/cluster/scripts/sweep.sh $(REMOTE_MANDELBROT_DIR) mandelbrot $(REMOTE_MANDELBROT_NOTES_DIR)/strong-$(RUN_ID) strong > /dev/null 2>&1 < /dev/null &"
+
+check-sweep-mandelbrot: ## Mostra progresso e se o sweep do mandelbrot terminou
+	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "d=\$$(ls -dt $(REMOTE_MANDELBROT_NOTES_DIR)/strong-* | head -1); echo \$$d; tail -n 3 \$$d/progresso.txt; [ -f \$$d/DONE ] && cat \$$d/DONE || echo 'ainda rodando...'"
+
+sweep-weak-mandelbrot: sync-cluster build-mandelbrot ## Weak scaling do mandelbrot otimizado (P imagens em sequencia), em background
+	@echo "Disparando weak scaling mandelbrot: P=[$(PROCS)] x $(REPS) repeticoes"
+	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "mkdir -p $(REMOTE_MANDELBROT_NOTES_DIR) && PROCS='$(PROCS)' REPS=$(REPS) PARS='$(WEAK_PARS)' nohup bash ~/cluster/scripts/sweep_weak.sh $(REMOTE_MANDELBROT_DIR) mandelbrot $(REMOTE_MANDELBROT_NOTES_DIR)/weak-$(RUN_ID) weak > /dev/null 2>&1 < /dev/null &"
+
+check-sweep-weak-mandelbrot: ## Mostra progresso e se o sweep weak do mandelbrot terminou
+	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "d=\$$(ls -dt $(REMOTE_MANDELBROT_NOTES_DIR)/weak-* | head -1); echo \$$d; tail -n 3 \$$d/progresso.txt; [ -f \$$d/DONE ] && cat \$$d/DONE || echo 'ainda rodando...'"
 
 ### Mandelbrot SPMD (Ingênuo)
 
