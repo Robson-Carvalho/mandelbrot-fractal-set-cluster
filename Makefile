@@ -142,24 +142,25 @@ check-mandelbrot: ## Checa se o mandelbrot está rodando no cluster
 
 stop-mandelbrot: ## Para a execução do mandelbrot no cluster
 	@echo "Parando a execução do mandelbrot no cluster e em todos os nós..."
-	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "killall -9 mpirun mandelbrot 2>/dev/null || true; if [ -f $(REMOTE_HOST_FILE) ]; then for node in \$$(sed 's/ .*//' $(REMOTE_HOST_FILE) | sort -u); do ssh \$$node 'killall -9 mandelbrot 2>/dev/null' < /dev/null || true; done; fi"
+	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "pkill -f '[s]weep(_weak)?\.sh' 2>/dev/null || true; killall -9 mpirun mandelbrot 2>/dev/null || true; if [ -f $(REMOTE_HOST_FILE) ]; then for node in \$$(sed 's/ .*//' $(REMOTE_HOST_FILE) | sort -u); do ssh \$$node 'killall -9 mandelbrot 2>/dev/null' < /dev/null || true; done; fi"
 
 clean-notes-mandelbrot: ## Apaga os resultados do mandelbrot (local e VPS)
 	@echo "Limpando análises do mandelbrot na VPS e localmente"
 	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "rm -rf $(REMOTE_MANDELBROT_NOTES_DIR)"
 	rm -rf $(LOCAL_NOTES_DIR)/mandelbrot
 
-sweep-strong-mandelbrot: sync-cluster build-mandelbrot ## Strong scaling do mandelbrot otimizado (P em PROCS, REPS repeticoes), em background
+sweep-strong-mandelbrot: ## Strong scaling do mandelbrot otimizado (P em PROCS, REPS repeticoes), em background
 	@echo "Disparando strong scaling mandelbrot: P=[$(PROCS)] x $(REPS) repeticoes"
-	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "mkdir -p $(REMOTE_MANDELBROT_NOTES_DIR) && PROCS='$(PROCS)' REPS=$(REPS) PARS='$(STRONG_PARS)' nohup bash ~/cluster/scripts/sweep.sh $(REMOTE_MANDELBROT_DIR) mandelbrot $(REMOTE_MANDELBROT_NOTES_DIR)/strong-$(RUN_ID) strong > /dev/null 2>&1 < /dev/null &"
+	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "if pgrep -f '[s]weep(_weak)?\.sh' > /dev/null; then echo 'ERRO: ja existe um sweep rodando no cluster, abortando'; exit 1; fi; mkdir -p $(REMOTE_MANDELBROT_NOTES_DIR); PROCS='$(PROCS)' REPS=$(REPS) PARS='$(STRONG_PARS)' nohup bash ~/cluster/scripts/sweep.sh $(REMOTE_MANDELBROT_DIR) mandelbrot $(REMOTE_MANDELBROT_NOTES_DIR)/strong-$(RUN_ID) strong > /dev/null 2>&1 < /dev/null &"
 
 check-sweep-mandelbrot: ## Mostra progresso e se o sweep do mandelbrot terminou
 	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "d=\$$(ls -dt $(REMOTE_MANDELBROT_NOTES_DIR)/strong-* | head -1); echo \$$d; tail -n 3 \$$d/progresso.txt; [ -f \$$d/DONE ] && cat \$$d/DONE || echo 'ainda rodando...'"
 
-sweep-weak-mandelbrot: sync-cluster build-mandelbrot ## Weak scaling do mandelbrot otimizado (P imagens em sequencia), em background
-	@echo "Disparando weak scaling mandelbrot: P=[$(PROCS)] x $(REPS) repeticoes"
-	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "mkdir -p $(REMOTE_MANDELBROT_NOTES_DIR) && PROCS='$(PROCS)' REPS=$(REPS) PARS='$(WEAK_PARS)' nohup bash ~/cluster/scripts/sweep_weak.sh $(REMOTE_MANDELBROT_DIR) mandelbrot $(REMOTE_MANDELBROT_NOTES_DIR)/weak-$(RUN_ID) weak > /dev/null 2>&1 < /dev/null &"
-
+sweep-strong-mandelbrot: ## Strong scaling do mandelbrot otimizado (P em PROCS, REPS repeticoes), em background
+	@echo "Disparando strong scaling mandelbrot: P=[$(PROCS)] x $(REPS) repeticoes"
+	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "if pgrep -f '[s]weep(_weak)?\.sh' > /dev/null; then echo 'ERRO: ja existe um sweep rodando no cluster, abortando'; exit 1; fi"
+	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "mkdir -p $(REMOTE_MANDELBROT_NOTES_DIR); PROCS='$(PROCS)' REPS=$(REPS) PARS='$(STRONG_PARS)' nohup bash ~/cluster/scripts/sweep.sh $(REMOTE_MANDELBROT_DIR) mandelbrot $(REMOTE_MANDELBROT_NOTES_DIR)/strong-$(RUN_ID) strong > /dev/null 2>&1 < /dev/null &"
+	
 check-sweep-weak-mandelbrot: ## Mostra progresso e se o sweep weak do mandelbrot terminou
 	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "d=\$$(ls -dt $(REMOTE_MANDELBROT_NOTES_DIR)/weak-* | head -1); echo \$$d; tail -n 3 \$$d/progresso.txt; [ -f \$$d/DONE ] && cat \$$d/DONE || echo 'ainda rodando...'"
 
@@ -184,13 +185,13 @@ clean-notes-spmd: ## Apaga os resultados do mandelbrot_spmd (local e VPS)
 
 sweep-strong-spmd: ## Strong scaling do SPMD (P em PROCS, REPS repeticoes), em background
 	@echo "Disparando strong scaling SPMD: P=[$(PROCS)] x $(REPS) repeticoes"
-	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "mkdir -p $(REMOTE_SPMD_NOTES_DIR) && PROCS='$(PROCS)' REPS=$(REPS) PARS='$(STRONG_PARS)' nohup bash ~/cluster/scripts/sweep.sh $(REMOTE_SPMD_DIR) mandelbrot_spmd $(REMOTE_SPMD_NOTES_DIR)/strong-$(RUN_ID) strong > /dev/null 2>&1 < /dev/null &"
+	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "if pgrep -f '[s]weep(_weak)?\.sh' > /dev/null; then echo 'ERRO: ja existe um sweep rodando no cluster, abortando'; exit 1; fi; mkdir -p $(REMOTE_SPMD_NOTES_DIR); PROCS='$(PROCS)' REPS=$(REPS) PARS='$(STRONG_PARS)' nohup bash ~/cluster/scripts/sweep.sh $(REMOTE_SPMD_DIR) mandelbrot_spmd $(REMOTE_SPMD_NOTES_DIR)/strong-$(RUN_ID) strong > /dev/null 2>&1 < /dev/null &"
 
 check-sweep: ## Mostra progresso e se o sweep terminou
 	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "d=\$$(ls -dt $(REMOTE_SPMD_NOTES_DIR)/strong-* | head -1); echo \$$d; tail -n 3 \$$d/progresso.txt; [ -f \$$d/DONE ] && cat \$$d/DONE || echo 'ainda rodando...'"
 
 sweep-weak-spmd: ## Weak scaling do SPMD (P imagens em sequencia), em background
-	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "mkdir -p $(REMOTE_SPMD_NOTES_DIR) && PROCS='$(PROCS)' REPS=$(REPS) PARS='$(WEAK_PARS)' nohup bash ~/cluster/scripts/sweep_weak.sh $(REMOTE_SPMD_DIR) mandelbrot_spmd $(REMOTE_SPMD_NOTES_DIR)/weak-$(RUN_ID) weak > /dev/null 2>&1 < /dev/null &"
+	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "if pgrep -f '[s]weep(_weak)?\.sh' > /dev/null; then echo 'ERRO: ja existe um sweep rodando no cluster, abortando'; exit 1; fi; mkdir -p $(REMOTE_SPMD_NOTES_DIR); PROCS='$(PROCS)' REPS=$(REPS) PARS='$(WEAK_PARS)' nohup bash ~/cluster/scripts/sweep_weak.sh $(REMOTE_SPMD_DIR) mandelbrot_spmd $(REMOTE_SPMD_NOTES_DIR)/weak-$(RUN_ID) weak > /dev/null 2>&1 < /dev/null &"
 
 check-sweep-weak: ## Mostra progresso e se o sweep weak terminou
 	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "d=\$$(ls -dt $(REMOTE_SPMD_NOTES_DIR)/weak-* | head -1); echo \$$d; tail -n 3 \$$d/progresso.txt; [ -f \$$d/DONE ] && cat \$$d/DONE || echo 'ainda rodando...'"

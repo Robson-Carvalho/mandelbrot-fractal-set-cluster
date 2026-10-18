@@ -1,0 +1,2 @@
+/home/grupob/cluster/scripts/sweep.sh: line 26: 55485 Killed                  timeout "$TIMEOUT" mpirun -np "$P" -machinefile "$HOSTFILE" ./"$BIN" $PARS "/tmp/$TAG.ppm" > "$OUT/$TAG.out" 2>&1 < /dev/null
+real=0.980 user=0.014 sys=0.031

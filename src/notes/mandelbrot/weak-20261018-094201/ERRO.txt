@@ -1,0 +1,1 @@
+ERRO: P=12 maior que slots (4)

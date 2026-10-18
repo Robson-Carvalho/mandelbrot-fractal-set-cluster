@@ -1,0 +1,11 @@
+11:51:21 iniciando strong-P1-r1
+11:55:17 iniciando strong-P1-r2
+11:59:14 iniciando strong-P1-r3
+12:03:08 iniciando strong-P2-r1
+12:05:13 iniciando strong-P2-r2
+12:07:17 iniciando strong-P2-r3
+12:09:21 iniciando strong-P4-r1
+12:10:29 iniciando strong-P4-r2
+12:10:31 iniciando strong-P4-r3
+12:10:33 iniciando strong-P8-r1
+12:11:15 iniciando strong-P8-r2
