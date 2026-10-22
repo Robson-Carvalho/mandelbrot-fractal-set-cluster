@@ -1,0 +1,28 @@
+
+Rank 3
+  Tcomp  = 224.258009 s
+  Tcomm  = 12.251110 s
+  Ttotal = 236.652019 s
+
+Rank 2
+  Tcomp  = 224.258103 s
+  Tcomm  = 11.274587 s
+  Ttotal = 236.652074 s
+
+Rank 1
+  Tcomp  = 224.246496 s
+  Tcomm  = 10.311375 s
+  Ttotal = 236.653859 s
+
+Rank 0
+  Tcomp  = 224.302126 s
+  Tcomm  = 11.834268 s
+  Ttotal = 236.656603 s
+  Treorder (so rank 0, dentro do Ttotal) = 0.519697 s
+
+Resumo estatístico entre os 4 ranks
+  Tcomp : Tmax=224.302126 s | Tmin=224.246496 s | Media=224.266184 s | Desvio=0.021281 s
+  Tcomm : Tmax=12.251110 s | Tmin=10.311375 s | Media=11.417835 s | Desvio=0.726729 s
+  Ttotal: Tmax=236.656603 s | Tmin=236.652019 s | Media=236.653639 s | Desvio=0.001865 s
+
+Resolução MPI_Wtick: 0.000000001 s

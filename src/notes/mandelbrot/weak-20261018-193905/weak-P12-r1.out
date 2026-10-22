@@ -1,0 +1,68 @@
+
+Rank 1
+  Tcomp  = 224.252490 s
+  Tcomm  = 41.544765 s
+  Ttotal = 269.200315 s
+
+Rank 5
+  Tcomp  = 224.243341 s
+  Tcomm  = 42.861859 s
+  Ttotal = 269.201244 s
+
+Rank 8
+  Tcomp  = 224.228824 s
+  Tcomm  = 43.854043 s
+  Ttotal = 269.198881 s
+
+Rank 4
+  Tcomp  = 224.238186 s
+  Tcomm  = 42.542802 s
+  Ttotal = 269.203539 s
+
+Rank 6
+  Tcomp  = 224.239676 s
+  Tcomm  = 43.190335 s
+  Ttotal = 269.201662 s
+
+Rank 9
+  Tcomp  = 224.256454 s
+  Tcomm  = 44.150638 s
+  Ttotal = 269.199416 s
+
+Rank 2
+  Tcomp  = 224.239328 s
+  Tcomm  = 41.880522 s
+  Ttotal = 269.198606 s
+
+Rank 10
+  Tcomp  = 224.235293 s
+  Tcomm  = 44.502454 s
+  Ttotal = 269.201401 s
+
+Rank 11
+  Tcomp  = 224.248453 s
+  Tcomm  = 44.815228 s
+  Ttotal = 269.200923 s
+
+Rank 7
+  Tcomp  = 224.226756 s
+  Tcomm  = 43.535826 s
+  Ttotal = 269.205542 s
+
+Rank 3
+  Tcomp  = 224.384713 s
+  Tcomm  = 42.065832 s
+  Ttotal = 269.198858 s
+
+Rank 0
+  Tcomp  = 224.437863 s
+  Tcomm  = 43.231400 s
+  Ttotal = 269.204256 s
+  Treorder (so rank 0, dentro do Ttotal) = 1.534599 s
+
+Resumo estatístico entre os 12 ranks
+  Tcomp : Tmax=224.437863 s | Tmin=224.226756 s | Media=224.269282 s | Desvio=0.064961 s
+  Tcomm : Tmax=44.815228 s | Tmin=41.544765 s | Media=43.181309 s | Desvio=1.002493 s
+  Ttotal: Tmax=269.205542 s | Tmin=269.198606 s | Media=269.201220 s | Desvio=0.002151 s
+
+Resolução MPI_Wtick: 0.000000001 s
