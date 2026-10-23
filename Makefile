@@ -52,7 +52,7 @@ else
     SCP_CMD := scp
 endif
 
-.PHONY: help hello-cluster sync-cluster build-hello run-hello sync-notes sync-pictures clean-pictures clean-notes-hello all-hello build-mpi run-mpi all-mpi clean-notes-mpi build-mandelbrot run-mandelbrot clean-notes-mandelbrot all-mandelbrot check-mandelbrot stop-mandelbrot build-spmd run-spmd check-spmd clean-notes-spmd all-spmd build-serial run-serial check-serial clean-notes-serial all-serial sweep-serial sweep-strong-spmd check-sweep sweep-weak-spmd check-sweep-weak sweep-strong-mandelbrot check-sweep-mandelbrot sweep-weak-mandelbrot check-sweep-weak-mandelbrot profile-mandelbrot
+.PHONY: help hello-cluster sync-cluster build-hello run-hello sync-notes sync-pictures clean-pictures clean-notes-hello all-hello build-mpi run-mpi all-mpi clean-notes-mpi build-mandelbrot run-mandelbrot clean-notes-mandelbrot all-mandelbrot check-mandelbrot stop-mandelbrot build-spmd run-spmd check-spmd clean-notes-spmd all-spmd build-serial run-serial check-serial clean-notes-serial all-serial sweep-serial sweep-strong-spmd check-sweep sweep-weak-spmd check-sweep-weak sweep-strong-mandelbrot check-sweep-mandelbrot sweep-weak-mandelbrot check-sweep-weak-mandelbrot profile-mandelbrot plot-venv plot-mandelbrot plot-spmd plot-all plot-compare
 
 help: ## Exibe esta mensagem de ajuda
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z0-9_-]+:.*?## / {printf "\033[36m%-25s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -227,3 +227,23 @@ profile-mandelbrot: ## Executa o mandelbrot com profiling mpiP em background (NP
 		if [ -z \"\$$LIB\" ]; then echo 'ERRO: libmpiP.so nao encontrada no cluster'; exit 1; fi; \
 		echo \"Usando \$$LIB\"; \
 		echo \"nohup bash -c 'MPIP=\\\"-f $(REMOTE_MANDELBROT_NOTES_DIR)/mpip\\\" mpirun -np $(NP) -machinefile $(REMOTE_HOST_FILE) -x LD_PRELOAD=\$$LIB -x MPIP ./mandelbrot $(PARS) -' > $(REMOTE_MANDELBROT_NOTES_DIR)/mpip/run-$(RUN_ID).log 2>&1 < /dev/null &\" > run_mpip.sh && bash run_mpip.sh"
+
+PLOT_VENV := .venv-plots
+PLOT_PY := $(PLOT_VENV)/bin/python
+
+$(PLOT_PY):
+	python3 -m venv $(PLOT_VENV)
+	$(PLOT_VENV)/bin/pip install -q matplotlib numpy
+
+plot-venv: $(PLOT_PY) ## Cria o venv local com matplotlib/numpy para os graficos
+
+plot-mandelbrot: $(PLOT_PY) ## Gera graficos strong/weak (mais recentes) em src/notes/mandelbrot
+	$(PLOT_PY) utils/plot_scaling.py --base $(LOCAL_NOTES_DIR)/mandelbrot
+
+plot-spmd: $(PLOT_PY) ## Gera graficos strong/weak (mais recentes) em src/notes/mandelbrot_spmd
+	$(PLOT_PY) utils/plot_scaling.py --base $(LOCAL_NOTES_DIR)/mandelbrot_spmd
+
+plot-all: plot-mandelbrot plot-spmd ## Gera graficos de mandelbrot e mandelbrot_spmd
+
+plot-compare: $(PLOT_PY) ## Gera graficos de comparacao entre os algoritmos em src/notes/analise
+	$(PLOT_PY) utils/compare_scaling.py --notes $(LOCAL_NOTES_DIR) --out $(LOCAL_NOTES_DIR)/analise

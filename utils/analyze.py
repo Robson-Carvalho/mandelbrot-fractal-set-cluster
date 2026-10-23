@@ -3,7 +3,7 @@
 analyze.py - tabelas e graficos para as secoes 2.2 a 2.8 do trabalho (Mandelbrot MPI).
 
 Uso:
-  python analyze.py --strong DIR [--serial DIR] [--weak DIR] [--out DIR] [--tserial SEG]
+  python3 analyze.py --strong DIR [--serial DIR] [--weak DIR] [--out DIR] [--tserial SEG]
 
 Arquivos esperados (em DIR ou subpastas): <prefixo>-P<P>-r<R>.out / .time / .status
   strong : strong-P4-r2.out ...
@@ -23,8 +23,9 @@ import sys
 RE_SUMMARY = re.compile(
     r'^\s*(T\w+)\s*:\s*Tmax=([\d.eE+-]+) s \| Tmin=([\d.eE+-]+) s \| '
     r'Media=([\d.eE+-]+) s \| Desvio=([\d.eE+-]+) s')
-RE_RANKHDR = re.compile(r'^Rank (\d+)\s*$')
-RE_RANKVAL = re.compile(r'^\s*(Tcomp|Tcomm|Twait|Tgather|Tbar|Ttotal|Tio)\s*=\s*([\d.eE+-]+) s')
+RE_RANKHDR = re.compile(r'^\s*Rank (\d+)\s*$')
+RE_RANKVAL = re.compile(
+    r'^\s*(Tcomp|Tcomm|Twait|Tgather|Tbar|Ttotal|Tio)\s*=\s*([\d.eE+-]+) s')
 RE_TIME = re.compile(r'real=([\d.]+)\s+user=([\d.]+)\s+sys=([\d.]+)')
 RE_IMGS = re.compile(r'imagens=(\d+)')
 RE_OLD_SERIAL = re.compile(r'Tempo de processamento.*:\s*([\d.]+)')
@@ -40,14 +41,14 @@ def sdev(xs):
 
 def read(path):
     try:
-        with open(path, errors='replace') as f:
+        with open(path, encoding='utf-8', errors='replace') as f:
             return f.read()
     except OSError:
         return None
 
 
 def parse_run(base):
-    """base = caminho sem extensao. Retorna dict ou (None, motivo)."""
+    """base = caminho sem extensao. Retorna (dict, None) ou (None, motivo)."""
     out = read(base + '.out')
     if out is None:
         return None, 'sem .out'
@@ -82,6 +83,7 @@ def parse_run(base):
         m = RE_IMGS.search(line)
         if m and 'Resumo' in line:
             run['imgs'] = int(m.group(1))
+
     # serial no formato novo
     sv = run.get('serial_vals')
     if sv and 'Ttotal' in sv:
@@ -92,8 +94,10 @@ def parse_run(base):
         m = RE_OLD_SERIAL.search(out)
         if m:
             return None, 'serial no formato ANTIGO (CPU + I/O misturados): nao serve como Tserial'
+
     if not run['summary'] and run['serial_ttotal'] is None:
         return None, 'sem linha de resumo (execucao incompleta?)'
+
     tm = read(base + '.time')
     if tm:
         m = RE_TIME.search(tm)
@@ -103,14 +107,15 @@ def parse_run(base):
 
 
 def load(dirpath, prefix):
-    """Retorna {P: [runs]} e lista de avisos."""
+    """Retorna {P: [runs]} e lista de avisos. Suporta sufixos intermediarios como -2img."""
     data, warns = {}, []
     if not dirpath:
         return data, warns
     pat = os.path.join(dirpath, '**', prefix + '-P*-r*.out')
+    regex_name = re.compile(r'^' + re.escape(prefix) + r'-P(\d+)(?:-[^-]+)*-r(\d+)$')
     for f in sorted(glob.glob(pat, recursive=True)):
         base = f[:-4]
-        m = re.search(re.escape(prefix) + r'-P(\d+)-r(\d+)$', os.path.basename(base))
+        m = regex_name.match(os.path.basename(base))
         if not m:
             continue
         P, r = int(m.group(1)), int(m.group(2))
@@ -148,18 +153,44 @@ def find_pars(*dirs):
     return None
 
 
+def amdahl(f, p):
+    return 1.0 / (f + (1.0 - f) / p)
+
+
 def amdahl_fit(Ps, S):
+    """Ajuste de f em [0, 1] por minimos quadrados com refinamento em dois estagios."""
     best_f, best_e = 0.0, float('inf')
+    # Busca grossa (passo 1e-4)
     for i in range(0, 10001):
         f = i / 10000.0
-        e = sum((s - 1.0 / (f + (1 - f) / p)) ** 2 for p, s in zip(Ps, S))
+        e = sum((s - amdahl(f, p)) ** 2 for p, s in zip(Ps, S))
+        if e < best_e:
+            best_f, best_e = f, e
+    # Refinamento local (passo 1e-6)
+    low = max(0.0, best_f - 0.001)
+    high = min(1.0, best_f + 0.001)
+    steps = int((high - low) * 1_000_000)
+    for i in range(steps + 1):
+        f = low + i * 1e-6
+        e = sum((s - amdahl(f, p)) ** 2 for p, s in zip(Ps, S))
         if e < best_e:
             best_f, best_e = f, e
     return best_f
 
 
-def amdahl(f, p):
-    return 1.0 / (f + (1 - f) / p)
+def gustafson(s, p):
+    """Lei de Gustafson: S_G(P) = s + p * P = P + (1 - P) * s."""
+    return p + (1.0 - p) * s
+
+
+def gustafson_fit(Ps, S_emp):
+    """Ajuste linear exato para s em S_G(P) = P - s*(P - 1) sobre P > 1."""
+    num = sum((p - s_emp) * (p - 1) for p, s_emp in zip(Ps, S_emp) if p > 1)
+    den = sum((p - 1) ** 2 for p in Ps if p > 1)
+    if den == 0:
+        return 0.0
+    s_fit = num / den
+    return min(1.0, max(0.0, s_fit))
 
 
 def md_table(headers, rows):
@@ -179,7 +210,8 @@ def pct(x):
 
 def summ(runs, key, idx):
     """media (entre repeticoes) de um campo do resumo. idx: 0=max 1=min 2=media 3=desvio"""
-    return mean([r['summary'][key][idx] for r in runs if key in r['summary']])
+    vals = [r['summary'][key][idx] for r in runs if key in r['summary']]
+    return mean(vals)
 
 
 def main():
@@ -203,16 +235,19 @@ def main():
     warns += w
     verif, w = load(a.weak, 'weak-verif') if a.weak else ({}, [])
     warns += w
-    weak = {p: v for p, v in weak.items()}
 
     if not strong:
-        print('Nenhuma execucao valida de strong encontrada.'); sys.exit(1)
+        print('Nenhuma execucao valida de strong encontrada.')
+        sys.exit(1)
     Ps = sorted(strong)
 
     pars = find_pars(a.strong, a.weak)
     pix = None
     if pars and len(pars) >= 2:
-        pix = int(pars[0]) * int(pars[1])
+        try:
+            pix = int(pars[0]) * int(pars[1])
+        except ValueError:
+            pix = None
 
     # ---------------- Tserial ----------------
     tserial_note = ''
@@ -233,25 +268,27 @@ def main():
         md.append(f'Parametros: `{" ".join(pars)}`\n')
     md.append(tserial_note + '\n')
 
-    # ---------------- 2.3 strong scaling ----------------
+    # ---------------- 2.3 strong scaling (Lei de Amdahl) ----------------
     rows, csv_rows = [], []
     tm_means, S, E = [], [], []
     for P in Ps:
         tmax = [r['summary']['Ttotal'][0] for r in strong[P]]
-        m, d = mean(tmax), sdev(tmax)
+        m = mean(tmax)
         tm_means.append(m)
         S.append(tserial / m)
-        E.append(tserial / m / P)
+        E.append((tserial / m) / P)
     f_amd = amdahl_fit(Ps, S)
     for i, P in enumerate(Ps):
         tmax = [r['summary']['Ttotal'][0] for r in strong[P]]
-        rows.append([P, len(tmax), f3(tm_means[i]), f3(sdev(tmax)), f3(S[i]), pct(E[i]),
-                     f3(amdahl(f_amd, P))])
-        csv_rows.append([P, len(tmax), tm_means[i], sdev(tmax), S[i], E[i], amdahl(f_amd, P)])
-    md.append('## 2.3 Strong scaling\n')
+        s_amd = amdahl(f_amd, P)
+        rows.append([P, len(tmax), f3(tm_means[i]), f3(sdev(tmax)), f3(S[i]), pct(E[i]), f3(s_amd)])
+        csv_rows.append([P, len(tmax), tm_means[i], sdev(tmax), S[i], E[i], s_amd])
+
+    md.append('## 2.3 Strong scaling (Lei de Amdahl)\n')
     md.append(md_table(['P', 'n', 'Tmax medio (s)', 'desvio (s)', 'Speedup', 'Eficiencia', 'Speedup Amdahl'], rows))
     md.append(f'\nFracao serial efetiva estimada (ajuste de Amdahl por minimos quadrados): '
-              f'f = {f_amd:.4f}. Esse f absorve toda perda (comunicacao, desbalanceamento, inicializacao), '
+              f'f = {f_amd:.4f} (speedup maximo assintotico 1/f = {1.0/f_amd:.2f}x se f > 0). '
+              'Esse f absorve toda perda (comunicacao, desbalanceamento, sincronizacao), '
               'nao so codigo estritamente serial.\n')
     with open(os.path.join(a.out, 'strong.csv'), 'w', newline='') as fh:
         w_ = csv.writer(fh)
@@ -316,33 +353,74 @@ def main():
         tmed, dsv = summ(strong[P], 'Tcomp', 2), summ(strong[P], 'Tcomp', 3)
         desb = tmax / tmed - 1.0
         classe = 'balanceado' if desb < 0.05 else ('desbalanceamento moderado' if desb < 0.15 else 'desbalanceado')
-        rws.append([P, f3(tmax), f3(tmin), f3(tmed), f3(dsv), pct(desb), pct(1 - tmed / tmax), classe])
+        rws.append([P, f3(tmax), f3(tmin), f3(tmed), f3(dsv), pct(desb), pct(1.0 - tmed / tmax), classe])
     md.append(md_table(['P', 'Tmax', 'Tmin', 'Tmedia', 'Desvio', 'Tmax/Tmedia - 1', 'Ociosidade media', 'Classe'], rws))
     md.append('\nCriterio adotado: desbalanceado se Tmax/Tmedia - 1 >= 15%, moderado entre 5% e 15%, balanceado abaixo de 5%. '
               'A ociosidade media (1 - Tmedia/Tmax) e a fracao do tempo do rank mais lento que o rank medio passa esperando.\n')
 
-    # ---------------- weak ----------------
-    wk_rows = []
+    # ---------------- 2.4 weak scaling (Lei de Gustafson) ----------------
+    wk_rows, wk_csv_rows = [], []
     wPs = sorted(weak)
+    wk_t, wk_s_emp, wk_s_gust_local = [], [], []
+    s_gust_fit = 0.0
     if wPs:
-        md.append('## 2.4 Weak scaling (N_total = P imagens)\n')
-        t1 = mean([r['summary']['Ttotal'][0] for r in weak[1]]) if 1 in weak else float('nan')
-        wk_t = []
+        md.append('## 2.4 Weak scaling e Lei de Gustafson (N_total = P imagens)\n')
+        if 1 in weak:
+            t1 = mean([r['summary']['Ttotal'][0] for r in weak[1]])
+        elif 1 in strong:
+            t1 = mean([r['summary']['Ttotal'][0] for r in strong[1]])
+            warns.append('weak P=1 ausente; usando strong P=1 como referencia T1 para weak scaling.')
+        else:
+            t1 = tserial
+            warns.append('weak P=1 e strong P=1 ausentes; usando Tserial como referencia T1 para weak scaling.')
+
         for P in wPs:
             tmax = [r['summary']['Ttotal'][0] for r in weak[P]]
             m = mean(tmax)
             wk_t.append(m)
             ef = t1 / m
+            s_emp = P * ef  # Speedup escalado medido: P * (T1 / TP)
+            fcomm_p = summ(weak[P], 'Tcomm', 0) / m
+            s_gust_p = gustafson(fcomm_p, P)  # Gustafson instantaneo usando s = Fcomm(P)
+            wk_s_emp.append(s_emp)
+            wk_s_gust_local.append(s_gust_p)
+
+        s_gust_fit = gustafson_fit(wPs, wk_s_emp)
+
+        for i, P in enumerate(wPs):
+            tmax = [r['summary']['Ttotal'][0] for r in weak[P]]
+            m, d = wk_t[i], sdev(tmax)
+            ef = t1 / m
+            s_emp = wk_s_emp[i]
+            fcomm_p = summ(weak[P], 'Tcomm', 0) / m
+            s_gust_f = gustafson(s_gust_fit, P)
             ntot = f'{P} x {pix:,} px = {P * pix:,}'.replace(',', '.') if pix else f'{P} imagens'
-            wk_rows.append([P, ntot, len(tmax), f3(m), f3(sdev(tmax)), pct(ef), f3(P * ef),
-                            pct(summ(weak[P], 'Tcomm', 0) / m)])
-        md.append(md_table(['P', 'Ntotal', 'n', 'Tmax medio (s)', 'desvio (s)', 'Eficiencia fraca T1/TP',
-                            'Speedup escalado P*T1/TP', 'Fcomm'], wk_rows))
-        md.append('')
-        if verif and 1 in verif and 1 in weak:
+            wk_rows.append([
+                P, ntot, len(tmax), f3(m), f3(d), pct(ef),
+                f3(s_emp), f3(wk_s_gust_local[i]), f3(s_gust_f), pct(fcomm_p)
+            ])
+            wk_csv_rows.append([
+                P, len(tmax), m, d, ef, s_emp, wk_s_gust_local[i], s_gust_f, fcomm_p
+            ])
+
+        md.append(md_table([
+            'P', 'Ntotal', 'n', 'Tmax medio (s)', 'desvio (s)', 'Eficiencia fraca (T1/TP)',
+            'Speedup Escalado (P*T1/TP)', 'Gustafson (s=Fcomm)', f'Gustafson ajuste (s={s_gust_fit:.4f})', 'Fcomm'
+        ], wk_rows))
+        md.append(f'\nPela **Lei de Gustafson**, $S_G(P) = P + (1 - P)s$. '
+                  f'Tomando $s = F_{{\\text{{comm}}}}(P)$ tem-se a estimativa baseada na fracao de comunicacao medida em cada $P$; '
+                  f'ajustando $s$ por minimos quadrados sobre a curva empirica $P \\cdot (T_1/T_P)$, obtem-se $s = {s_gust_fit:.4f}$.\n')
+
+        with open(os.path.join(a.out, 'weak.csv'), 'w', newline='') as fh:
+            w_ = csv.writer(fh)
+            w_.writerow(['P', 'n', 'Tmax_medio', 'desvio', 'eficiencia_fraca',
+                         'speedup_escalado', 'gustafson_fcomm', 'gustafson_fit', 'fcomm'])
+            w_.writerows(wk_csv_rows)
+
+        if verif and 1 in verif:
             t2 = mean([r['summary']['Ttotal'][0] for r in verif[1]])
             md.append(f'**Teste de proporcionalidade:** P=1 com 2 imagens = {f3(t2)} s contra {f3(t1)} s com 1 imagem; '
-                      f'razao = {t2 / t1:.3f} (ideal: 2,000). Desvios grandes dessa razao indicam que o trabalho nao '
+                      f'razao = {t2 / t1:.3f} (ideal: 2.000). Desvios grandes dessa razao indicam que o trabalho nao '
                       'escala exatamente com o numero de imagens.\n')
     elif a.weak:
         md.append('## 2.4 Weak scaling\n\nNenhuma execucao valida encontrada na pasta informada.\n')
@@ -351,7 +429,7 @@ def main():
         md.append('## Avisos\n')
         md += [f'- {x}' for x in warns]
 
-    with open(os.path.join(a.out, 'resultados.md'), 'w') as fh:
+    with open(os.path.join(a.out, 'resultados.md'), 'w', encoding='utf-8') as fh:
         fh.write('\n'.join(md) + '\n')
     print('\n'.join(md))
 
@@ -364,43 +442,94 @@ def main():
         print('\n(matplotlib ausente: graficos nao gerados)')
         return
 
+    # 1. Strong Scaling: Speedup + Lei de Amdahl
     fig, ax = plt.subplots(figsize=(6, 4.5))
-    ax.plot(Ps, S, 'o-', label='medido')
-    ax.plot(Ps, Ps, '--', label='ideal (S = P)')
+    ax.plot(Ps, S, 'o-', label='Medido (S = Tserial / Tmax)')
+    ax.plot(Ps, Ps, '--', label='Ideal (S = P)')
     pp = list(range(1, max(Ps) + 1))
-    ax.plot(pp, [amdahl(f_amd, p) for p in pp], ':', label=f'Amdahl (f = {f_amd:.3f})')
-    ax.set_xlabel('P'); ax.set_ylabel('Speedup'); ax.set_title('Strong scaling: speedup')
-    ax.grid(alpha=.3); ax.legend()
-    fig.tight_layout(); fig.savefig(os.path.join(a.out, 'speedup.png'), dpi=150); plt.close(fig)
+    ax.plot(pp, [amdahl(f_amd, p) for p in pp], ':', linewidth=2, label=f'Lei de Amdahl (f = {f_amd:.4f})')
+    ax.set_xlabel('Numero de processos (P)')
+    ax.set_ylabel('Speedup')
+    ax.set_title('Strong Scaling: Speedup e Lei de Amdahl')
+    ax.grid(alpha=.3)
+    ax.legend()
+    fig.tight_layout()
+    fig.savefig(os.path.join(a.out, 'speedup.png'), dpi=150)
+    plt.close(fig)
 
+    # 2. Strong Scaling: Eficiencia
     fig, ax = plt.subplots(figsize=(6, 4.5))
-    ax.plot(Ps, [100 * e for e in E], 'o-')
-    ax.set_xlabel('P'); ax.set_ylabel('Eficiencia (%)'); ax.set_title('Strong scaling: eficiencia')
-    ax.set_ylim(0, 110); ax.grid(alpha=.3)
-    fig.tight_layout(); fig.savefig(os.path.join(a.out, 'eficiencia.png'), dpi=150); plt.close(fig)
+    ax.plot(Ps, [100 * e for e in E], 'o-', label='Medida')
+    ax.axhline(100, linestyle='--', color='gray', alpha=0.7, label='Ideal (100%)')
+    ax.set_xlabel('Numero de processos (P)')
+    ax.set_ylabel('Eficiencia (%)')
+    ax.set_title('Strong Scaling: Eficiencia')
+    ax.set_ylim(0, max(110, max(100 * e for e in E) * 1.1))
+    ax.grid(alpha=.3)
+    ax.legend()
+    fig.tight_layout()
+    fig.savefig(os.path.join(a.out, 'eficiencia.png'), dpi=150)
+    plt.close(fig)
 
+    # 3. Composicao do tempo por rank medio (incluindo Tbar)
     fig, ax = plt.subplots(figsize=(6, 4.5))
     comp = [summ(strong[P], 'Tcomp', 2) for P in Ps]
-    wait = [summ(strong[P], 'Twait', 2) if any('Twait' in r['summary'] for r in strong[P]) else 0 for P in Ps]
-    gat = [summ(strong[P], 'Tgather', 2) if any('Tgather' in r['summary'] for r in strong[P]) else 0 for P in Ps]
+    wait = [summ(strong[P], 'Twait', 2) if any('Twait' in r['summary'] for r in strong[P]) else 0.0 for P in Ps]
+    gat = [summ(strong[P], 'Tgather', 2) if any('Tgather' in r['summary'] for r in strong[P]) else 0.0 for P in Ps]
+    bar = [summ(strong[P], 'Tbar', 2) if any('Tbar' in r['summary'] for r in strong[P]) else 0.0 for P in Ps]
     x = list(range(len(Ps)))
+    b_wait = comp
+    b_gat = [c + w_ for c, w_ in zip(comp, wait)]
+    b_bar = [g + gt for g, gt in zip(b_gat, gat)]
     ax.bar(x, comp, label='Tcomp (medio)')
-    ax.bar(x, wait, bottom=comp, label='Twait (medio)')
-    ax.bar(x, gat, bottom=[c + w_ for c, w_ in zip(comp, wait)], label='Tgather (medio)')
-    ax.set_xticks(x); ax.set_xticklabels(Ps)
-    ax.set_xlabel('P'); ax.set_ylabel('tempo (s)'); ax.set_title('Composicao do tempo por rank medio')
-    ax.legend(); ax.grid(alpha=.3, axis='y')
-    fig.tight_layout(); fig.savefig(os.path.join(a.out, 'composicao.png'), dpi=150); plt.close(fig)
+    ax.bar(x, wait, bottom=b_wait, label='Twait (medio)')
+    ax.bar(x, gat, bottom=b_gat, label='Tgather (medio)')
+    if any(b > 0 for b in bar):
+        ax.bar(x, bar, bottom=b_bar, label='Tbar (medio)')
+    ax.set_xticks(x)
+    ax.set_xticklabels(Ps)
+    ax.set_xlabel('Numero de processos (P)')
+    ax.set_ylabel('Tempo (s)')
+    ax.set_title('Composicao do tempo por rank medio')
+    ax.legend()
+    ax.grid(alpha=.3, axis='y')
+    fig.tight_layout()
+    fig.savefig(os.path.join(a.out, 'composicao.png'), dpi=150)
+    plt.close(fig)
 
+    # 4. Weak Scaling: Tempo de execucao e Lei de Gustafson
     if wPs:
         fig, ax = plt.subplots(figsize=(6, 4.5))
-        ax.plot(wPs, wk_t, 'o-', label='medido')
-        ax.axhline(wk_t[0], linestyle='--', label='ideal (constante)')
-        ax.set_xlabel('P'); ax.set_ylabel('Tmax medio (s)'); ax.set_title('Weak scaling')
-        ax.set_ylim(0, max(wk_t) * 1.15); ax.grid(alpha=.3); ax.legend()
-        fig.tight_layout(); fig.savefig(os.path.join(a.out, 'weak.png'), dpi=150); plt.close(fig)
+        ax.plot(wPs, wk_t, 'o-', label='Medido (Tmax medio)')
+        ax.axhline(t1, linestyle='--', label=f'Ideal constante (T1 = {t1:.2f} s)')
+        ax.set_xlabel('Numero de processos / imagens (P)')
+        ax.set_ylabel('Tmax medio (s)')
+        ax.set_title('Weak Scaling: Tempo de Execucao')
+        ax.set_ylim(0, max(wk_t + [t1]) * 1.15)
+        ax.grid(alpha=.3)
+        ax.legend()
+        fig.tight_layout()
+        fig.savefig(os.path.join(a.out, 'weak.png'), dpi=150)
+        plt.close(fig)
 
-    print(f'\nSaidas em: {a.out}/ (resultados.md, strong.csv, *.png)')
+        # 5. Grafico de Speedup Escalado (Lei de Gustafson)
+        fig, ax = plt.subplots(figsize=(6, 4.5))
+        ax.plot(wPs, wk_s_emp, 'o-', label='Speedup Escalado (P * T1 / TP)')
+        ax.plot(wPs, wPs, '--', label='Ideal (S = P)')
+        wpp = list(range(1, max(wPs) + 1))
+        ax.plot(wpp, [gustafson(s_gust_fit, p) for p in wpp], ':', linewidth=2,
+                label=f'Lei de Gustafson (s = {s_gust_fit:.4f})')
+        ax.plot(wPs, wk_s_gust_local, 's--', alpha=0.7, label='Gustafson local (s = Fcomm)')
+        ax.set_xlabel('Numero de processos (P)')
+        ax.set_ylabel('Speedup Escalado')
+        ax.set_title('Weak Scaling: Speedup Escalado (Lei de Gustafson)')
+        ax.grid(alpha=.3)
+        ax.legend()
+        fig.tight_layout()
+        fig.savefig(os.path.join(a.out, 'gustafson.png'), dpi=150)
+        plt.close(fig)
+
+    print(f'\nSaidas em: {a.out}/ (resultados.md, strong.csv, weak.csv, *.png)')
 
 
 if __name__ == '__main__':
