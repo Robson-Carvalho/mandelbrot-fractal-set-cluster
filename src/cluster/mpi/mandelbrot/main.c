@@ -1,8 +1,9 @@
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <math.h>
 #include <string.h>
+#include <limits.h>
+#include <math.h>
 #include "lib/complex.h"
 #include "lib/mandelbrot.h"
 
@@ -22,6 +23,7 @@ static void reduce_stats(const char *nome, double v, int rank, int size) {
 
 int main(int argc, char **argv) {
     int rank, size;
+
     int rc = MPI_Init(&argc, &argv);
     if (rc != MPI_SUCCESS) {
         printf("Error starting MPI program.\n");
@@ -35,6 +37,8 @@ int main(int argc, char **argv) {
     if (argc < 8) {
         if (rank == 0) {
             printf("Uso: make all-mandelbrot PARS=\"<largura> <altura> <minX> <maxX> <minY> <maxY> <max_iter>\"\n");
+            printf("Exemplo: make all-mandelbrot PARS=\"2000 2000 -2.0 1.0 -1.5 1.5 1000\"\n");
+            printf("Opcional apos os 7 parametros: <arquivo|-> <num_imagens>\n");
         }
         MPI_Finalize();
         return -1;
@@ -48,65 +52,69 @@ int main(int argc, char **argv) {
     double maxY = atof(argv[6]);
     int max_iter = atoi(argv[7]);
 
-    // Opcional: <arquivo|-> <num_imagens>. "-" nao grava a imagem.
-    int write_image = !(argc > 8 && strcmp(argv[8], "-") == 0);
+    int write_image = (argc >= 9 && strcmp(argv[8], "-") != 0);
     int num_images = (argc >= 10) ? atoi(argv[9]) : 1;
     if (num_images < 1) num_images = 1;
 
-    int my_rows = rows / size + (rank < rows % size);
+    int tasks_processed = rows / size + (rank < rows % size);
 
-    // tamanho da linha
     size_t line_bytes = (size_t)columns * 3;
-    size_t total_image_bytes = (size_t)rows * line_bytes;
+    size_t total_bytes = (size_t)rows * line_bytes;
+    size_t local_bytes = (size_t)tasks_processed * line_bytes;
 
-    // tamanho parcial da imagem - apenas o tamanho calculado das linhas por esse processo
-    unsigned char *my_lines = (unsigned char *)malloc(my_rows * line_bytes * sizeof(unsigned char));
-    if (my_lines == NULL) {
-        fprintf(stderr, "Rank %d: falha ao alocar my_lines\n", rank);
-        MPI_Abort(MPI_COMM_WORLD, 1);
+    if (size > 1 && total_bytes > (size_t)INT_MAX) {
+        if (rank == 0)
+            fprintf(stderr, "ERRO: imagem de %zu bytes excede INT_MAX; o MPI_Gatherv (contadores int) nao suporta.\n", total_bytes);
+        MPI_Finalize();
+        return 1;
     }
 
-    double t_comp = 0.0, t_wait = 0.0, t_gather = 0.0, t_bar = 0.0;
-    double t_total = 0.0, t_io = 0.0;
-    double t_reorder = 0.0; // medido apenas no rank 0 (memcpy de reordenação), fica dentro do Ttotal
+    /* ---------- Alocacao + pre-touch (fora do cronometro) ---------- */
+    unsigned char *local_buffer = (unsigned char *)malloc(local_bytes);
+    if (!local_buffer) {
+        fprintf(stderr, "[Rank %d] Falha no malloc do local_buffer (%zu bytes)\n", rank, local_bytes);
+        MPI_Abort(MPI_COMM_WORLD, 1);
+    }
+    memset(local_buffer, 0, local_bytes);
 
-    // Buffers de coleta alocados fora do cronometro (reutilizados entre imagens)
-    unsigned char *full_image = NULL;
+    int *recvcounts = NULL;
+    int *displs = NULL;
     unsigned char *gathered_buffer = NULL;
-    int *chunk_sizes_in_bytes = NULL;
-    int *byte_offsets_in_buffer = NULL;
+    unsigned char *global_buffer = NULL;   // imagem final (so rank 0)
 
     if (rank == 0) {
         if (size == 1) {
-            full_image = my_lines; // P=1: o buffer local ja contem todas as linhas ordenadas
+            global_buffer = local_buffer;  // P=1: o buffer local ja e a imagem
         } else {
-            full_image = (unsigned char *)malloc(total_image_bytes);
-            gathered_buffer = (unsigned char *)malloc(total_image_bytes);
+            global_buffer = (unsigned char *)malloc(total_bytes);
+            gathered_buffer = (unsigned char *)malloc(total_bytes);
+            if (!global_buffer || !gathered_buffer) {
+                fprintf(stderr, "[Rank 0] Falha no malloc dos buffers globais (%zu bytes)\n", total_bytes);
+                MPI_Abort(MPI_COMM_WORLD, 1);
+            }
+            memset(global_buffer, 0, total_bytes);
+            memset(gathered_buffer, 0, total_bytes);
 
-            if (full_image == NULL || gathered_buffer == NULL) {
-                fprintf(stderr, "Rank %d: falha ao alocar buffers de imagem\n", rank);
+            recvcounts = (int *)malloc((size_t)size * sizeof(int));
+            displs = (int *)malloc((size_t)size * sizeof(int));
+            if (!recvcounts || !displs) {
+                fprintf(stderr, "[Rank 0] Falha ao alocar arrays de coleta\n");
                 MPI_Abort(MPI_COMM_WORLD, 1);
             }
 
-            // Arrays para o MPI_Gatherv saber o tamanho do bloco de cada processo
-            chunk_sizes_in_bytes = (int *)malloc(size * sizeof(int));
-            byte_offsets_in_buffer = (int *)malloc(size * sizeof(int));
-
-            if (chunk_sizes_in_bytes == NULL || byte_offsets_in_buffer == NULL) {
-                fprintf(stderr, "Rank %d: falha ao alocar arrays de coleta\n", rank);
-                MPI_Abort(MPI_COMM_WORLD, 1);
-            }
-
-            int accumulated_bytes = 0;
-            for (int process_id = 0; process_id < size; process_id++) {
-                int lines_this_process = rows / size + (process_id < rows % size);
-                int bytes_this_process = lines_this_process * (int)line_bytes;
-                chunk_sizes_in_bytes[process_id] = bytes_this_process;
-                byte_offsets_in_buffer[process_id] = accumulated_bytes;
-                accumulated_bytes += bytes_this_process;
+            size_t current_displ = 0;
+            for (int i = 0; i < size; i++) {
+                int lines_this_proc = rows / size + (i < rows % size);
+                size_t cnt = (size_t)lines_this_proc * line_bytes;
+                recvcounts[i] = (int)cnt;
+                displs[i] = (int)current_displ;
+                current_displ += cnt;
             }
         }
     }
+
+    double t_comp = 0.0, t_wait = 0.0, t_gather = 0.0, t_reorder = 0.0, t_bar = 0.0;
+    double t_total = 0.0, t_io = 0.0;
 
     MPI_Barrier(MPI_COMM_WORLD);
     double t_section_start = MPI_Wtime();
@@ -114,27 +122,38 @@ int main(int argc, char **argv) {
     for (int img = 0; img < num_images; img++) {
         int local_idx = 0;
         double compute_start = MPI_Wtime();
+
         for (int i = rank; i < rows; i += size) {
-            int offset = local_idx * line_bytes;
-            unsigned char *row_ptr = &my_lines[offset];
+            unsigned char *row_ptr = &local_buffer[(size_t)local_idx * line_bytes];
 
             for (int e = 0; e < columns; e++) {
                 Complex_number c;
-                c.real = minX + ((double)e / columns) * (maxX - minX);
-                c.imag = maxY - ((double)i / rows) * (maxY - minY);
+
+                double unidades_largura = maxX - minX;
+                double unidades_altura = maxY - minY;
+
+                double proporcao_x = (e / (double)columns);
+                double proporcao_y = (i / (double)rows);
+
+                double deslocamento_x = unidades_largura * proporcao_x;
+                double deslocamento_y = unidades_altura * proporcao_y;
+
+                c.real = minX + deslocamento_x;
+                c.imag = maxY - deslocamento_y;
 
                 Mandelbrot_check_return result = check_mandelbrot(c, max_iter);
 
-                unsigned char color_intensity;
-
+                unsigned char pixel_value;
                 if (result.check == 1 || result.iterations_to_scape == max_iter) {
-                    color_intensity = 0;
+                    pixel_value = 0;
                 } else {
-                    color_intensity = (unsigned char)(sin(0.1 * result.iterations_to_scape) * 127.5 + 127.5);
+                    int iter = result.iterations_to_scape;
+                    pixel_value = (unsigned char)(sin(0.1 * iter) * 127.5 + 127.5);
                 }
-                row_ptr[e * 3 + 0] = color_intensity;
-                row_ptr[e * 3 + 1] = color_intensity;
-                row_ptr[e * 3 + 2] = color_intensity;
+
+                row_ptr[e * 3 + 0] = pixel_value; // R
+                row_ptr[e * 3 + 1] = pixel_value; // G
+                row_ptr[e * 3 + 2] = pixel_value; // B
             }
             local_idx++;
         }
@@ -146,34 +165,23 @@ int main(int argc, char **argv) {
             t_wait += MPI_Wtime() - w0;
 
             double g0 = MPI_Wtime();
-            MPI_Gatherv(
-                my_lines,
-                my_rows * (int)line_bytes,
-                MPI_UNSIGNED_CHAR,
-                gathered_buffer,
-                chunk_sizes_in_bytes,
-                byte_offsets_in_buffer,
-                MPI_UNSIGNED_CHAR,
-                0,
-                MPI_COMM_WORLD
-            );
+            MPI_Gatherv(local_buffer, (int)local_bytes, MPI_UNSIGNED_CHAR,
+                        gathered_buffer, recvcounts, displs, MPI_UNSIGNED_CHAR,
+                        0, MPI_COMM_WORLD);
             t_gather += MPI_Wtime() - g0;
 
             if (rank == 0) {
-                double reorder_start = MPI_Wtime();
+                double r0 = MPI_Wtime();
                 for (int real_line = 0; real_line < rows; real_line++) {
                     int owner = real_line % size;
                     int line_in_block = real_line / size;
 
-                    size_t source_index = byte_offsets_in_buffer[owner] + line_in_block * line_bytes;
-                    size_t destination_index = real_line * line_bytes;
+                    size_t src_idx = (size_t)displs[owner] + (size_t)line_in_block * line_bytes;
+                    size_t dst_idx = (size_t)real_line * line_bytes;
 
-                    unsigned char *source = &gathered_buffer[source_index];
-                    unsigned char *destination = &full_image[destination_index];
-
-                    memcpy(destination, source, line_bytes);
+                    memcpy(&global_buffer[dst_idx], &gathered_buffer[src_idx], line_bytes);
                 }
-                t_reorder += MPI_Wtime() - reorder_start;
+                t_reorder += MPI_Wtime() - r0;
             }
         }
     }
@@ -185,27 +193,36 @@ int main(int argc, char **argv) {
     t_total = MPI_Wtime() - t_section_start;
     double t_comm = t_wait + t_gather + t_bar;
 
+    printf("[Rank %d] Finalizado! Processei %d linhas por imagem (%d imagem(ns)).\n", rank, tasks_processed, num_images);
+
     if (rank == 0) {
+        printf("[Rank 0] Imagem montada com sucesso! O array global_buffer tem %zu bytes ordenados.\n", total_bytes);
+
         if (write_image) {
-            char *filename = (argc > 8) ? argv[8] : "mandelbrot_mpi.ppm";
+            char *filename = argv[8];
             double io0 = MPI_Wtime();
             FILE *file_image = fopen(filename, "wb");
             if (file_image) {
                 fprintf(file_image, "P6\n%d %d\n255\n", columns, rows);
-                fwrite(full_image, sizeof(unsigned char), total_image_bytes, file_image);
+                fwrite(global_buffer, sizeof(unsigned char), total_bytes, file_image);
                 fclose(file_image);
                 t_io = MPI_Wtime() - io0;
-                printf("Imagem salva com sucesso em '%s'\n", filename);
+                printf("[Rank 0] Imagem salva em: %s\n", filename);
+            } else {
+                perror("[Rank 0] Erro ao abrir arquivo para escrita");
             }
+        } else {
+            printf("[Rank 0] Imagem nao gravada (sem arquivo ou \"-\").\n");
         }
+
+        free(recvcounts);
+        free(displs);
         if (size > 1) {
-            free(full_image);
             free(gathered_buffer);
-            free(chunk_sizes_in_bytes);
-            free(byte_offsets_in_buffer);
+            free(global_buffer);
         }
     }
-    free(my_lines);
+    free(local_buffer);
 
     printf("\nRank %d\n", rank);
     printf("  Tcomp  = %.6f s\n", t_comp);

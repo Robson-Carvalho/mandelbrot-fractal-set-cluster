@@ -1,0 +1,49 @@
+
+Rank 4
+  Tcomp  = 28.035539 s
+  Tcomm  = 1.985326 s
+  Ttotal = 32.039740 s
+
+Rank 5
+  Tcomp  = 28.036612 s
+  Tcomm  = 2.474986 s
+  Ttotal = 32.039506 s
+
+Rank 3
+  Tcomp  = 28.037289 s
+  Tcomm  = 1.492237 s
+  Ttotal = 32.039466 s
+
+Rank 2
+  Tcomp  = 28.037519 s
+  Tcomm  = 1.002553 s
+  Ttotal = 32.039271 s
+
+Rank 1
+  Tcomp  = 28.051956 s
+  Tcomm  = 0.499013 s
+  Ttotal = 32.039548 s
+
+Rank 6
+  Tcomp  = 28.037147 s
+  Tcomm  = 3.164250 s
+  Ttotal = 32.039466 s
+
+Rank 7
+  Tcomp  = 28.037600 s
+  Tcomm  = 3.855232 s
+  Ttotal = 32.040134 s
+Imagem salva com sucesso em '/tmp/strong-P8-r2.ppm'
+
+Rank 0
+  Tcomp  = 28.052285 s
+  Tcomm  = 3.849052 s
+  Ttotal = 32.039928 s
+  Treorder (so rank 0, dentro do Ttotal) = 0.138304 s
+
+Resumo estatístico entre os 8 ranks
+  Tcomp : Tmax=28.052285 s | Tmin=28.035539 s | Media=28.040743 s | Desvio=0.006597 s
+  Tcomm : Tmax=3.855232 s | Tmin=0.499013 s | Media=2.290331 s | Desvio=1.187094 s
+  Ttotal: Tmax=32.040134 s | Tmin=32.039271 s | Media=32.039632 s | Desvio=0.000264 s
+
+Resolução MPI_Wtick: 0.000000001 s

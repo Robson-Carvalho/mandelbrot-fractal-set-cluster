@@ -1,0 +1,87 @@
+[Rank 4] Finalizado! Processei 1260 linhas.
+[Rank 6] Finalizado! Processei 1260 linhas.
+[Rank 5] Finalizado! Processei 1260 linhas.
+[Rank 3] Finalizado! Processei 1260 linhas.
+[Rank 0] Finalizado! Processei 1260 linhas.
+[Rank 0] Imagem montada com sucesso! O array global_buffer tem 457228800 bytes ordenados.
+[Rank 1] Finalizado! Processei 1260 linhas.
+[Rank 2] Finalizado! Processei 1260 linhas.
+[Rank 7] Finalizado! Processei 1260 linhas.
+
+Rank 5
+  Tcomp  = 28.047420 s
+  Tcomm  = 3.591050 s
+  Twait  = 0.002224 s
+  Tgather= 2.456640 s
+  Tbar   = 1.132186 s
+  Ttotal = 31.638471 s
+
+Rank 3
+  Tcomp  = 28.038913 s
+  Tcomm  = 3.599405 s
+  Twait  = 0.010585 s
+  Tgather= 1.480460 s
+  Tbar   = 2.108361 s
+  Ttotal = 31.638319 s
+
+Rank 1
+  Tcomp  = 28.038548 s
+  Tcomm  = 3.599935 s
+  Twait  = 0.011105 s
+  Tgather= 0.499115 s
+  Tbar   = 3.089714 s
+  Ttotal = 31.638484 s
+
+Rank 2
+  Tcomp  = 28.036916 s
+  Tcomm  = 3.601516 s
+  Twait  = 0.012734 s
+  Tgather= 0.988786 s
+  Tbar   = 2.599996 s
+  Ttotal = 31.638433 s
+
+Rank 4
+  Tcomp  = 28.037881 s
+  Tcomm  = 3.600978 s
+  Twait  = 0.012149 s
+  Tgather= 1.969969 s
+  Tbar   = 1.618860 s
+  Ttotal = 31.638860 s
+
+Rank 6
+  Tcomp  = 28.037003 s
+  Tcomm  = 3.601668 s
+  Twait  = 0.012825 s
+  Tgather= 2.949537 s
+  Tbar   = 0.639306 s
+  Ttotal = 31.638672 s
+
+Rank 7
+  Tcomp  = 28.034801 s
+  Tcomm  = 3.604176 s
+  Twait  = 0.015270 s
+  Tgather= 3.438094 s
+  Tbar   = 0.150811 s
+  Ttotal = 31.638978 s
+[Rank 0] Imagem salva em: /tmp/strong-P8-r1.ppm
+
+Rank 0
+  Tcomp  = 28.050133 s
+  Tcomm  = 3.450422 s
+  Twait  = 0.000065 s
+  Tgather= 3.450291 s
+  Tbar   = 0.000067 s
+  Ttotal = 31.639058 s
+  Treorder (so rank 0, dentro do Ttotal) = 0.138501 s
+  Tio    = 11.746962 s
+
+Resumo estatístico entre os 8 ranks
+  Tcomp  : Tmax=28.050133 s | Tmin=28.034801 s | Media=28.040202 s | Desvio=0.005132 s
+  Tcomm  : Tmax=3.604176 s | Tmin=3.450422 s | Media=3.581144 s | Desvio=0.049539 s
+  Twait  : Tmax=0.015270 s | Tmin=0.000065 s | Media=0.009620 s | Desvio=0.005092 s
+  Tgather: Tmax=3.450291 s | Tmin=0.499115 s | Media=2.154112 s | Desvio=1.039088 s
+  Tbar   : Tmax=3.089714 s | Tmin=0.000067 s | Media=1.417413 s | Desvio=1.061428 s
+  Ttotal : Tmax=31.639058 s | Tmin=31.638319 s | Media=31.638660 s | Desvio=0.000258 s
+  Tio (rank 0, fora do Ttotal): 11.746962 s
+
+Resolução MPI_Wtick: 0.000000001 s

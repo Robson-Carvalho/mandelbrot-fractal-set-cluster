@@ -1,0 +1,19 @@
+
+Rank 1
+  Tcomp  = 112.143442 s
+  Tcomm  = 2.016847 s
+  Ttotal = 114.318058 s
+Imagem salva com sucesso em '/tmp/strong-P2-r3.ppm'
+
+Rank 0
+  Tcomp  = 112.159333 s
+  Tcomm  = 2.018372 s
+  Ttotal = 114.319682 s
+  Treorder (so rank 0, dentro do Ttotal) = 0.141131 s
+
+Resumo estatístico entre os 2 ranks
+  Tcomp : Tmax=112.159333 s | Tmin=112.143442 s | Media=112.151387 s | Desvio=0.007946 s
+  Tcomm : Tmax=2.018372 s | Tmin=2.016847 s | Media=2.017610 s | Desvio=0.000763 s
+  Ttotal: Tmax=114.319682 s | Tmin=114.318058 s | Media=114.318870 s | Desvio=0.000812 s
+
+Resolução MPI_Wtick: 0.000000001 s

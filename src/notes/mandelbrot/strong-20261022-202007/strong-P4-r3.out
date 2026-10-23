@@ -1,0 +1,29 @@
+
+Rank 1
+  Tcomp  = 56.071766 s
+  Tcomm  = 1.013013 s
+  Ttotal = 59.398863 s
+
+Rank 3
+  Tcomp  = 56.069367 s
+  Tcomm  = 3.173917 s
+  Ttotal = 59.397835 s
+
+Rank 2
+  Tcomp  = 56.073043 s
+  Tcomm  = 2.196733 s
+  Ttotal = 59.398108 s
+Imagem salva com sucesso em '/tmp/strong-P4-r3.ppm'
+
+Rank 0
+  Tcomp  = 56.087505 s
+  Tcomm  = 3.172059 s
+  Ttotal = 59.398971 s
+  Treorder (so rank 0, dentro do Ttotal) = 0.138918 s
+
+Resumo estatístico entre os 4 ranks
+  Tcomp : Tmax=56.087505 s | Tmin=56.069367 s | Media=56.075420 s | Desvio=0.007101 s
+  Tcomm : Tmax=3.173917 s | Tmin=1.013013 s | Media=2.388930 s | Desvio=0.888761 s
+  Ttotal: Tmax=59.398971 s | Tmin=59.397835 s | Media=59.398445 s | Desvio=0.000484 s
+
+Resolução MPI_Wtick: 0.000000001 s

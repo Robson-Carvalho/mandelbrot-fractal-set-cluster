@@ -1,0 +1,27 @@
+[Rank 0] Finalizado! Processei 10080 linhas.
+[Rank 0] Imagem montada com sucesso! O array global_buffer tem 457228800 bytes ordenados.
+[Rank 0] Imagem salva em: /home/grupob/pictures/mandelbrot/mandelbrot-20261022-212045.ppm
+
+Rank 0
+  Tcomp  = 224.296573 s
+  Tcomm  = 0.000001 s
+  Twait  = 0.000000 s
+  Tgather= 0.000000 s
+  Tbar   = 0.000001 s
+  Ttotal = 224.296575 s
+  Tio    = 4.469348 s
+
+Resumo estatístico entre os 1 ranks
+  Tcomp  : Tmax=224.296573 s | Tmin=224.296573 s | Media=224.296573 s | Desvio=0.000000 s
+  Tcomm  : Tmax=0.000001 s | Tmin=0.000001 s | Media=0.000001 s | Desvio=0.000000 s
+  Twait  : Tmax=0.000000 s | Tmin=0.000000 s | Media=0.000000 s | Desvio=0.000000 s
+  Tgather: Tmax=0.000000 s | Tmin=0.000000 s | Media=0.000000 s | Desvio=0.000000 s
+  Tbar   : Tmax=0.000001 s | Tmin=0.000001 s | Media=0.000001 s | Desvio=0.000000 s
+  Ttotal : Tmax=224.296575 s | Tmin=224.296575 s | Media=224.296575 s | Desvio=0.000000 s
+  Tio (rank 0, fora do Ttotal): 4.469348 s
+
+Resolução MPI_Wtick: 0.000000001 s
+
+real	3m51.102s
+user	0m0.021s
+sys	0m0.030s

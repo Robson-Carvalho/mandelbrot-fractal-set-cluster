@@ -45,14 +45,14 @@ STRONG_PARS ?= 15120 10080 -2 1 -1 1 1500
 WEAK_PARS ?= 15120 10080 -2 1 -1 1 1500
 
 ifneq ($(PASSWORD),)
-	SSH_CMD := sshpass -p '$(PASSWORD)' ssh
-	SCP_CMD := sshpass -p '$(PASSWORD)' scp
+    SSH_CMD := sshpass -p '$(PASSWORD)' ssh
+    SCP_CMD := sshpass -p '$(PASSWORD)' scp
 else
-	SSH_CMD := ssh
-	SCP_CMD := scp
+    SSH_CMD := ssh
+    SCP_CMD := scp
 endif
 
-.PHONY: help hello-cluster sync-cluster build-hello run-hello sync-notes sync-pictures clean-pictures clean-notes-hello all-hello build-mpi run-mpi all-mpi clean-notes-mpi build-mandelbrot run-mandelbrot clean-notes-mandelbrot all-mandelbrot check-mandelbrot stop-mandelbrot build-spmd run-spmd check-spmd clean-notes-spmd all-spmd build-serial run-serial check-serial clean-notes-serial all-serial sweep-strong-spmd check-sweep sweep-weak-spmd check-sweep-weak sweep-strong-mandelbrot check-sweep-mandelbrot sweep-weak-mandelbrot check-sweep-weak-mandelbrot
+.PHONY: help hello-cluster sync-cluster build-hello run-hello sync-notes sync-pictures clean-pictures clean-notes-hello all-hello build-mpi run-mpi all-mpi clean-notes-mpi build-mandelbrot run-mandelbrot clean-notes-mandelbrot all-mandelbrot check-mandelbrot stop-mandelbrot build-spmd run-spmd check-spmd clean-notes-spmd all-spmd build-serial run-serial check-serial clean-notes-serial all-serial sweep-serial sweep-strong-spmd check-sweep sweep-weak-spmd check-sweep-weak sweep-strong-mandelbrot check-sweep-mandelbrot sweep-weak-mandelbrot check-sweep-weak-mandelbrot profile-mandelbrot
 
 help: ## Exibe esta mensagem de ajuda
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z0-9_-]+:.*?## / {printf "\033[36m%-25s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -130,7 +130,7 @@ clean-notes-mpi: ## Apaga os resultados do hello_mpi (local e VPS)
 
 build-mandelbrot: ## Compila o mandelbrot com mpicc
 	@echo "Compilando mandelbrot com mpicc"
-	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "cd $(REMOTE_MANDELBROT_DIR) && mpicc -O2 main.c lib/complex.c lib/mandelbrot.c -o mandelbrot -lm"
+	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "cd $(REMOTE_MANDELBROT_DIR) && mpicc -O2 -g main.c lib/complex.c lib/mandelbrot.c -o mandelbrot -lm"
 
 run-mandelbrot: ## Executa o mandelbrot em background no cluster
 	@echo "Executando mandelbrot no cluster com nohup em background"
@@ -167,7 +167,7 @@ check-sweep-weak-mandelbrot: ## Mostra progresso e se o sweep weak do mandelbrot
 
 build-spmd: ## Compila o mandelbrot_spmd com mpicc
 	@echo "Compilando mandelbrot_spmd com mpicc"
-	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "cd $(REMOTE_SPMD_DIR) && mpicc -O2 main.c lib/complex.c lib/mandelbrot.c -o mandelbrot_spmd -lm"
+	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "cd $(REMOTE_SPMD_DIR) && mpicc -O2 -g main.c lib/complex.c lib/mandelbrot.c -o mandelbrot_spmd -lm"
 
 run-spmd: ## Executa o mandelbrot_spmd em background no cluster
 	@echo "Executando mandelbrot_spmd no cluster com nohup em background"
@@ -199,7 +199,7 @@ check-sweep-weak: ## Mostra progresso e se o sweep weak terminou
 
 build-serial: ## Compila o serial com gcc
 	@echo "Compilando serial com gcc"
-	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "cd $(REMOTE_SERIAL_DIR) && gcc -O2 image_generator.c complex.c mandelbrot.c -o serial_app -lm"
+	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "cd $(REMOTE_SERIAL_DIR) && gcc -O2 -g image_generator.c complex.c mandelbrot.c -o serial_app -lm"
 
 run-serial: ## Executa o serial em background no nó de cômputo
 	@echo "Executando serial no nó de cômputo com nohup em background"
@@ -217,3 +217,13 @@ clean-notes-serial: ## Apaga os resultados do serial (local e VPS)
 sweep-serial: ## Serial (REPS repeticoes) no primeiro no do host_nodes, em background
 	@echo "Disparando serial: $(REPS) repeticoes"
 	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "mkdir -p $(REMOTE_SERIAL_NOTES_DIR) && REPS=$(REPS) PARS='$(STRONG_PARS)' nohup bash ~/cluster/scripts/sweep_serial.sh $(REMOTE_SERIAL_DIR) serial_app $(REMOTE_SERIAL_NOTES_DIR)/serial-$(RUN_ID) serial > /dev/null 2>&1 < /dev/null &"
+
+### MPIP
+
+profile-mandelbrot: ## Executa o mandelbrot com profiling mpiP em background (NP processos)
+	@echo "Executando profiling mpiP do mandelbrot (NP=$(NP))..."
+	$(SSH_CMD) $(ARGS) $(USER)@$(HOST) "mkdir -p $(REMOTE_MANDELBROT_NOTES_DIR)/mpip && cd $(REMOTE_MANDELBROT_DIR) && \
+		LIB=\$$(find /usr /opt /lib* -name 'libmpiP.so' 2>/dev/null | head -n 1); \
+		if [ -z \"\$$LIB\" ]; then echo 'ERRO: libmpiP.so nao encontrada no cluster'; exit 1; fi; \
+		echo \"Usando \$$LIB\"; \
+		echo \"nohup bash -c 'MPIP=\\\"-f $(REMOTE_MANDELBROT_NOTES_DIR)/mpip\\\" mpirun -np $(NP) -machinefile $(REMOTE_HOST_FILE) -x LD_PRELOAD=\$$LIB -x MPIP ./mandelbrot $(PARS) -' > $(REMOTE_MANDELBROT_NOTES_DIR)/mpip/run-$(RUN_ID).log 2>&1 < /dev/null &\" > run_mpip.sh && bash run_mpip.sh"
