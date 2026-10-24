@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Compara os dois algoritmos (balanceado x SPMD sem balanceamento) com graficos.
 
+Comparacoes (dois algoritmos) vao para --out; tabelas de cada algoritmo, para a pasta dele.
+
 Uso: python compare_scaling.py --notes src/notes [--out src/notes/analise]
 Le a execucao COMPLETA mais recente (DONE + P=1) de strong-*/weak-* em
 <notes>/mandelbrot e <notes>/mandelbrot_spmd. Metrica: Tmax entre ranks (MPI_Wtime).
@@ -10,6 +12,7 @@ import glob
 import os
 import re
 import sys
+import textwrap
 from collections import defaultdict
 
 import matplotlib
@@ -153,4 +156,122 @@ ax.axhline(1, ls="--", color="gray", label="Ideal")
 ax.set_ylim(0, 1.15)
 finish(fig, ax, "comparacao_weak_eficiencia.png", Ps)
 
-print(f"\nImagens salvas em {OUT}")
+# ---- 2.5 Fracao de comunicacao: Fcomm = Tcomm_max / Ttotal_max ----
+def fcomm(d):
+    Ps = np.array(list(d))
+    return Ps, np.array([np.mean([r["Tcomm"][0] / r["Ttotal"][0] for r in d[p]]) for p in Ps]) * 100
+
+
+for kind, i, title, name in [("strong", 0, "Strong scaling", "comparacao_strong_fcomm.png"),
+                             ("weak", 1, "Weak scaling", "comparacao_weak_fcomm.png")]:
+    fig, ax = new(f"{title}: fração de comunicação", ylabel="% do tempo total gasto em comunicação")
+    for a in ALGS:
+        Ps, y = fcomm(DATA[a][i])
+        line(ax, a, Ps, y)
+    ax.set_ylim(0, None)
+    finish(fig, ax, name, Ps)
+
+
+# ---- Tabelas como imagem ----
+PIXELS_PER_IMAGE = 15120 * 10080  # STRONG/WEAK_PARS do Makefile: largura x altura por imagem
+
+
+def table_image(rows, cols, title, name, outdir):
+    """Tabela grande e legivel (slides/relatorio): fonte 16, cabecalho quebrado em linhas."""
+    cols = [c if "\n" in c else textwrap.fill(c, 13) for c in cols]
+    n_rows = len(rows)
+    head_units = 1.7  # cabecalho ocupa mais altura (ate 3 linhas)
+    row_h = 0.75      # polegadas por linha de dados
+    fig_w = max(10, 2.7 * len(cols))
+    fig_h = row_h * (n_rows + head_units) + 1.3
+    fig, ax = plt.subplots(figsize=(fig_w, fig_h))
+    ax.axis("off")
+    ax.set_title(textwrap.fill(title, 70), fontsize=19, fontweight="bold", pad=18)
+    t = ax.table(cellText=rows, colLabels=cols, loc="center", cellLoc="center", bbox=[0, 0, 1, 1])
+    t.auto_set_font_size(False)
+    t.set_fontsize(17)
+    total = n_rows + head_units
+    for (r, c), cell in t.get_celld().items():
+        cell.set_height((head_units if r == 0 else 1) / total)
+        cell.set_edgecolor("#bbbbbb")
+        cell.set_linewidth(1.2)
+        if r == 0:
+            cell.set_facecolor("#2a3f5f")
+            cell.set_text_props(color="white", fontweight="bold", fontsize=16)
+        elif r % 2 == 0:
+            cell.set_facecolor("#eef2f8")
+    fig.savefig(os.path.join(outdir, name), bbox_inches="tight", dpi=200)
+    plt.close(fig)
+
+
+def sd(v):
+    return float(np.std(v, ddof=1)) if len(v) > 1 else 0.0
+
+
+for a, (lab, _, _) in ALGS.items():
+    strong, weak = DATA[a]
+    adir = os.path.join(NOTES, a)  # tabelas de cada algoritmo ficam na pasta dele
+
+    # 2.3 Strong
+    t1 = np.mean([r["Ttotal"][0] for r in strong[min(strong)]])
+    rows = []
+    for p, runs in strong.items():
+        v = [r["Ttotal"][0] for r in runs]
+        rows.append([p, f"{np.mean(v):.3f}", f"{sd(v):.3f}", f"{t1 / np.mean(v):.3f}", f"{t1 / np.mean(v) / p:.3f}"])
+    table_image(rows, ["P", "Tmax médio (s)", "Desvio (s)", "Speedup", "Eficiência"],
+                f"Strong scaling – {lab}", "tabela_strong.png", adir)
+
+    # 2.4 Weak
+    t1 = np.mean([r["Ttotal"][0] for r in weak[min(weak)]])
+    rows = []
+    for p, runs in weak.items():
+        v = [r["Ttotal"][0] for r in runs]
+        rows.append([p, f"{p} imagens ({p * PIXELS_PER_IMAGE / 1e6:,.0f} Mpx)", f"{np.mean(v):.3f}",
+                     f"{sd(v):.3f}", f"{t1 / np.mean(v):.3f}"])
+    table_image(rows, ["P", "Ntotal", "Tmax médio (s)", "Desvio (s)", "Eficiência fraca"],
+                f"Weak scaling – {lab}", "tabela_weak.png", adir)
+
+    # 2.5 Comunicacao vs computacao (strong e weak)
+    for kind, d in (("strong", strong), ("weak", weak)):
+        rows = []
+        for p, runs in d.items():
+            comp = np.mean([r["Tcomp"][2] for r in runs])
+            comm = np.mean([r["Tcomm"][2] for r in runs])
+            fc = np.mean([r["Tcomm"][0] / r["Ttotal"][0] for r in runs]) * 100
+            rows.append([p, f"{comp:.3f}", f"{comm:.3f}", f"{fc:.2f}"])
+        table_image(rows, ["P", "Tcomp médio (s)", "Tcomm médio (s)", "% do tempo em\ncomunicação"],
+                    f"Comunicação vs computação ({kind}) – {lab}", f"tabela_{kind}_fcomm.png", adir)
+
+    # 2.2.1 Estatistica entre ranks (media das execucoes) - strong
+    rows = []
+    for p, runs in strong.items():
+        for m in ("Tcomp", "Tcomm", "Ttotal"):
+            vals = [np.mean([r[m][k] for r in runs]) for k in range(4)]
+            rows.append([p, m] + [f"{x:.3f}" for x in vals])
+    table_image(rows, ["P", "Métrica", "Tmax (s)", "Tmin (s)", "Tmédia (s)", "Desvio (s)"],
+                f"Estatísticas entre ranks (strong, média das execuções) – {lab}", "tabela_ranks_strong.png", adir)
+
+# ---- 2.10 Original (SPMD ingenuo) x Otimizado (mandelbrot balanceado) ----
+IMG_BYTES = 15120 * 10080 * 3  # bytes de uma imagem (RGB), igual ao global_buffer do rank 0
+
+
+def optimization_table(i, kind, title):
+    orig, opt = DATA["mandelbrot_spmd"][i], DATA["mandelbrot"][i]
+    rows = []
+    for p in sorted(set(orig) & set(opt)):
+        to = np.mean([r["Ttotal"][0] for r in orig[p]])
+        tp = np.mean([r["Ttotal"][0] for r in opt[p]])
+        fo = np.mean([r["Tcomm"][0] / r["Ttotal"][0] for r in orig[p]]) * 100
+        fp = np.mean([r["Tcomm"][0] / r["Ttotal"][0] for r in opt[p]]) * 100
+        imgs = p if kind == "weak" else 1
+        vol = imgs * IMG_BYTES * (p - 1) / p / 1e6  # Gatherv: tudo exceto a parte do proprio rank 0
+        rows.append([p, f"{to:.2f}", f"{tp:.2f}", f"{to / tp:.2f}x", f"{fo:.1f}", f"{fp:.1f}", f"{vol:,.0f}"])
+    table_image(rows, ["P", "Original SPMD\nTmax (s)", "Otimizado\nTmax (s)", "Speedup\notimização",
+                       "% comunicação\noriginal", "% comunicação\notimizado", "Volume Gatherv\n(MB, ambos)"],
+                title, f"tabela_otimizacao_{kind}.png", OUT)
+
+
+optimization_table(0, "strong", "Original (SPMD) x Otimizado (mandelbrot balanceado) – strong scaling")
+optimization_table(1, "weak", "Original (SPMD) x Otimizado (mandelbrot balanceado) – weak scaling")
+
+print(f"\nComparacoes salvas em {OUT}; tabelas em <notes>/<algoritmo>/")
