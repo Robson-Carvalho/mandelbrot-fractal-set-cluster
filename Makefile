@@ -52,7 +52,7 @@ else
     SCP_CMD := scp
 endif
 
-.PHONY: help hello-cluster sync-cluster build-hello run-hello sync-notes sync-pictures clean-pictures clean-notes-hello all-hello build-mpi run-mpi all-mpi clean-notes-mpi build-mandelbrot run-mandelbrot clean-notes-mandelbrot all-mandelbrot check-mandelbrot stop-mandelbrot build-spmd run-spmd check-spmd clean-notes-spmd all-spmd build-serial run-serial check-serial clean-notes-serial all-serial sweep-serial sweep-strong-spmd check-sweep sweep-weak-spmd check-sweep-weak sweep-strong-mandelbrot check-sweep-mandelbrot sweep-weak-mandelbrot check-sweep-weak-mandelbrot profile-mandelbrot plot-venv plot-mandelbrot plot-spmd plot-all plot-compare
+.PHONY: help hello-cluster sync-cluster build-hello run-hello sync-notes sync-pictures clean-pictures clean-notes-hello all-hello build-mpi run-mpi all-mpi clean-notes-mpi build-mandelbrot run-mandelbrot clean-notes-mandelbrot all-mandelbrot check-mandelbrot stop-mandelbrot build-spmd run-spmd check-spmd clean-notes-spmd all-spmd build-serial run-serial check-serial clean-notes-serial all-serial sweep-serial sweep-strong-spmd check-sweep sweep-weak-spmd check-sweep-weak sweep-strong-mandelbrot check-sweep-mandelbrot sweep-weak-mandelbrot check-sweep-weak-mandelbrot profile-mandelbrot plot-venv plot-mandelbrot plot-spmd plot-serial plot-all plot-compare
 
 help: ## Exibe esta mensagem de ajuda
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z0-9_-]+:.*?## / {printf "\033[36m%-25s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -243,7 +243,10 @@ plot-mandelbrot: $(PLOT_PY) ## Gera graficos strong/weak (mais recentes) em src/
 plot-spmd: $(PLOT_PY) ## Gera graficos strong/weak (mais recentes) em src/notes/mandelbrot_spmd
 	$(PLOT_PY) utils/plot_scaling.py --base $(LOCAL_NOTES_DIR)/mandelbrot_spmd
 
-plot-all: plot-mandelbrot plot-spmd ## Gera graficos de mandelbrot e mandelbrot_spmd
+plot-serial: $(PLOT_PY) ## Gera graficos do baseline serial (serial_tempo.png, serial_vs_mpi_p1.png) em src/notes/serial
+	$(PLOT_PY) utils/plot_serial.py --notes $(LOCAL_NOTES_DIR)
+
+plot-all: plot-mandelbrot plot-spmd plot-serial ## Gera graficos de mandelbrot, mandelbrot_spmd e baseline serial
 
 plot-compare: $(PLOT_PY) ## Gera graficos de comparacao entre os algoritmos em src/notes/analise
 	$(PLOT_PY) utils/compare_scaling.py --notes $(LOCAL_NOTES_DIR) --out $(LOCAL_NOTES_DIR)/analise
