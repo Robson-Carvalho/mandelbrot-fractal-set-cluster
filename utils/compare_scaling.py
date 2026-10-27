@@ -242,14 +242,50 @@ for a, (lab, _, _) in ALGS.items():
         table_image(rows, ["P", "Tcomp médio (s)", "Tcomm médio (s)", "% do tempo em\ncomunicação"],
                     f"Comunicação vs computação ({kind}) – {lab}", f"tabela_{kind}_fcomm.png", adir)
 
-    # 2.2.1 Estatistica entre ranks (media das execucoes) - strong
-    rows = []
-    for p, runs in strong.items():
-        for m in ("Tcomp", "Tcomm", "Ttotal"):
-            vals = [np.mean([r[m][k] for r in runs]) for k in range(4)]
-            rows.append([p, m] + [f"{x:.3f}" for x in vals])
-    table_image(rows, ["P", "Métrica", "Tmax (s)", "Tmin (s)", "Tmédia (s)", "Desvio (s)"],
-                f"Estatísticas entre ranks (strong, média das execuções) – {lab}", "tabela_ranks_strong.png", adir)
+    # 2.2.1 Estatistica entre ranks (media das execucoes) - strong e weak
+    for kind, d, kname in [("strong", strong, "Strong"), ("weak", weak, "Weak")]:
+        rows = []
+        for p, runs in d.items():
+            for m in ("Tcomp", "Tcomm", "Ttotal"):
+                vals = [np.mean([r[m][k] for r in runs]) for k in range(4)]
+                rows.append([p, m] + [f"{x:.3f}" for x in vals])
+        table_image(rows, ["P", "Métrica", "Tmax (s)", "Tmin (s)", "Tmédia (s)", "Desvio (s)"],
+                    f"Estatísticas entre ranks ({kname}, média das execuções) – {lab}", f"tabela_ranks_{kind}.png", adir)
+
+# ---- 2.8 Comparativo de Carga por Rank (P=12 Strong Scaling) ----
+def parse_per_rank_tcomp(filepath):
+    """Extrai Tcomp de cada rank individual de um arquivo .out."""
+    ranks = {}
+    cur_rank = None
+    with open(filepath, errors="replace") as fh:
+        for line in fh:
+            m_rank = re.match(r"^Rank\s+(\d+)", line)
+            if m_rank:
+                cur_rank = int(m_rank.group(1))
+            elif cur_rank is not None:
+                m_tc = re.match(r"^\s*Tcomp\s*=\s*([\d.]+)", line)
+                if m_tc:
+                    ranks[cur_rank] = float(m_tc.group(1))
+                    cur_rank = None
+    return ranks
+
+fig, ax = plt.subplots(figsize=(8, 4.8))
+r_opt = parse_per_rank_tcomp(os.path.join(latest(os.path.join(NOTES, "mandelbrot"), "strong"), "strong-P12-r1.out"))
+r_spmd = parse_per_rank_tcomp(os.path.join(latest(os.path.join(NOTES, "mandelbrot_spmd"), "strong"), "strong-P12-r1.out"))
+if r_opt and r_spmd:
+    ranks_idx = sorted(set(r_opt.keys()) | set(r_spmd.keys()))
+    w = 0.38
+    x = np.arange(len(ranks_idx))
+    ax.bar(x - w/2, [r_opt.get(k, 0) for k in ranks_idx], width=w, color="#2a6fdb", label="Balanceado (mandelbrot)")
+    ax.bar(x + w/2, [r_spmd.get(k, 0) for k in ranks_idx], width=w, color="#d9534f", label="Sem balanceamento (SPMD)")
+    ax.set_xticks(x)
+    ax.set_xticklabels([f"Rank {k}" for k in ranks_idx], rotation=45)
+    ax.set_ylabel("Tcomp individual (s)")
+    ax.set_title("2.8 Distribuição de Carga por Rank (P=12, Strong Scaling)", fontweight="bold")
+    ax.legend()
+    fig.tight_layout()
+    fig.savefig(os.path.join(OUT, "comparacao_distribuicao_ranks_P12.png"), dpi=200)
+    plt.close(fig)
 
 # ---- 2.10 Original (SPMD ingenuo) x Otimizado (mandelbrot balanceado) ----
 IMG_BYTES = 15120 * 10080 * 3  # bytes de uma imagem (RGB), igual ao global_buffer do rank 0
