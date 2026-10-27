@@ -140,15 +140,16 @@ Pw = np.array(list(wd))
 wm = np.array([tmax(wd[p]).mean() for p in Pw])
 ws = np.array([tmax(wd[p]).std(ddof=1) if len(wd[p]) > 1 else 0 for p in Pw])
 weff = wm[0] / wm
-print("\nWEAK: P | Tmax medio | desvio | eficiencia (T1/TP)")
-for p, m, s, e in zip(Pw, wm, ws, weff):
-    print(f"{p:3d} | {m:9.3f} | {s:7.3f} | {e:6.3f}")
+wspeed = Pw * weff  # speedup escalado (Gustafson): P * T1 / TP
+print("\nWEAK: P | Tmax medio | desvio | eficiencia (T1/TP) | speedup escalado (P*T1/TP)")
+for p, m, s, e, sp in zip(Pw, wm, ws, weff, wspeed):
+    print(f"{p:3d} | {m:9.3f} | {s:7.3f} | {e:6.3f} | {sp:6.2f}")
 
 # componentes (media dos Tmax de Tcomp e Tcomm)
 comp = np.array([tmax(wd[p], "Tcomp").mean() for p in Pw])
 comm = np.array([tmax(wd[p], "Tcomm").mean() for p in Pw])
 
-fig, ax = plt.subplots(1, 3, figsize=(16, 4.8))
+fig, ax = plt.subplots(1, 4, figsize=(21, 4.8))
 time_bars(ax[0], wd, Pw, wm, ws, "Tempo (carga por processo constante)", ideal=wm[0],
           xlabel="Processos (P) = imagens")
 ax[1].plot(Pw, weff, "o-", color="#2a9d5c")
@@ -158,8 +159,12 @@ ax[2].bar(Pw.astype(str), comp, color="#2a6fdb", label="Tcomp (Tmax)")
 ax[2].bar(Pw.astype(str), comm, bottom=comp, color="#d9534f", label="Tcomm (Tmax)")
 ax[2].set(xlabel="Processos (P)", ylabel="Tempo (s)", title="Composição: Tcomp vs Tcomm")
 ax[2].legend()
-for a in ax[1:2]:
+ax[3].plot(Pw, wspeed, "o-", color="#2a9d5c", label="Medido")
+ax[3].plot(Pw, Pw, "--", color="gray", label="Ideal")
+ax[3].set(xlabel="Processos (P)", ylabel="Speedup escalado (P·T1/TP)", title="Speedup escalado (Gustafson)")
+ax[3].legend()
+for a in (ax[1], ax[3]):
     a.set_xticks(Pw)
 fig.tight_layout()
-save_each(fig, ax, ["weak_tempo.png", "weak_eficiencia.png", "weak_composicao.png"])
-print("\nGerados: strong_{tempo,speedup,eficiencia}.png e weak_{tempo,eficiencia,composicao}.png")
+save_each(fig, ax, ["weak_tempo.png", "weak_eficiencia.png", "weak_composicao.png", "weak_speedup.png"])
+print("\nGerados: strong_{tempo,speedup,eficiencia}.png e weak_{tempo,eficiencia,composicao,speedup}.png")
