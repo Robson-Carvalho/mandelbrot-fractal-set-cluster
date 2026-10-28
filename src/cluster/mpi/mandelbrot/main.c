@@ -187,7 +187,9 @@ int main(int argc, char **argv) {
     }
 
     double b0 = MPI_Wtime();
+
     MPI_Barrier(MPI_COMM_WORLD);
+    
     t_bar += MPI_Wtime() - b0;
 
     t_total = MPI_Wtime() - t_section_start;

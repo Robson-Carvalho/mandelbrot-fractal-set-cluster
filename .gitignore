@@ -5,3 +5,4 @@ host_nodes
 src/pictures/*
 *.ppm
 venv/.venv-plots/
+trabalho-3_memoriaDistribuid.md
